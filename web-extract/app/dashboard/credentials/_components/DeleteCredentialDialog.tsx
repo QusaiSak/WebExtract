@@ -1,6 +1,6 @@
 "use client";
-import { DeleteCredential } from "@/actions/credentials/deleteCredential";
-import { DeleteWorkflow } from "@/actions/workflows/deleteWorkflow";
+import React, { useState } from "react";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,41 +10,42 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useMutation } from "@tanstack/react-query";
+import { deleteCredential } from "@/actions/credentials";
+import { toast } from "sonner";
+import { AlertDialogTrigger } from "@radix-ui/react-alert-dialog";
+import { Button } from "@/components/ui/button";
 import { XIcon } from "lucide-react";
-import { useState } from "react";
-import toast from "react-hot-toast";
 
 interface Props {
-  name: string;
+  crendentialName: string;
+  credentialId: string;
 }
-const DeleteCredentialDialog = ({
-  name
-}: Props) => {
 
-  const [open,setOpen] = useState(false);
+function DeleteCredentialDialog({ crendentialName, credentialId }: Props) {
+  const [confirmText, setConfirmText] = useState("");
+  const [open, setOpen] = useState(false);
+
   const deleteMutation = useMutation({
-    mutationFn: DeleteCredential,
-    onSuccess: () => {  
-      toast.success("Credential deleted successfully", { id: name });
+    mutationFn: deleteCredential,
+    onSuccess: () => {
+      toast.success("Credential deleted successfully", { id: credentialId });
       setConfirmText("");
     },
     onError: () => {
-      toast.error("Something went wrong!", { id: name });
+      toast.error("Failed to delete credential", { id: credentialId });
     },
   });
-  const [confirmText, setConfirmText] = useState("");
+
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
         <Button variant={"destructive"} size={"icon"}>
           <XIcon size={18} />
         </Button>
-        </AlertDialogTrigger>
+      </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -52,7 +53,7 @@ const DeleteCredentialDialog = ({
             If you delete this credential, you will not be able to recover it.
             <div className="flex flex-col py-4 gap-2">
               <p>
-                If you are sure, enter <b>{name}</b> to confirm:
+                If you are sure, enter <b>{crendentialName}</b> to confirm.
               </p>
               <Input
                 value={confirmText}
@@ -62,20 +63,17 @@ const DeleteCredentialDialog = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel
-            onClick={() => {
-              setConfirmText("");
-            }}
-          >
+          <AlertDialogCancel onClick={() => setConfirmText("")}>
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
-            disabled={confirmText !== name || deleteMutation.isPending}
-            className="bg-destructive text-destructive-foreground
-        hover:bg-destructive/90"
+            disabled={
+              confirmText !== crendentialName || deleteMutation.isPending
+            }
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             onClick={() => {
-              toast.loading("Deleting credential...", { id: name });
-              deleteMutation.mutate(name);
+              toast.loading("Deleting credential...", { id: credentialId });
+              deleteMutation.mutate(credentialId);
             }}
           >
             Delete
@@ -84,5 +82,6 @@ const DeleteCredentialDialog = ({
       </AlertDialogContent>
     </AlertDialog>
   );
-};
+}
+
 export default DeleteCredentialDialog;

@@ -1,12 +1,9 @@
-'use client';
+"use client";
+
+import { createCredential } from "@/actions/credentials";
 import CustomDialogHeader from "@/components/CustomDialogHeader";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { Layers2Icon, Loader2, ShieldEllipsis } from "lucide-react";
-import { useCallback, useState } from "react";
-import { useForm } from "react-hook-form";
-import { createWorkflowSchema } from "@/schema/workflows";
-import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Form,
   FormControl,
@@ -14,37 +11,41 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { createWorkflowSchemaType } from "@/schema/workflows";
-import { createWorkflow } from "@/actions/workflows/createWorkflow";
+import {
+  createCredentialSchema,
+  createCredentialSchemaType,
+} from "@/schema/credential";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import toast from "react-hot-toast";
-import { creatCredentialSchema, creatCredentialSchemaType } from "@/schema/credential";
-import { CreateCredential } from "@/actions/credentials/createCredential";
-import { set } from "date-fns";
+import { Layers2Icon, Loader2 } from "lucide-react";
+import { useCallback, useState } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 
-function CreateCredentialDialog({ triggerText }: { triggerText?: string }) {
+function CreateCredentialDialog({ triggeredText }: { triggeredText?: string }) {
   const [open, setOpen] = useState(false);
-  const form = useForm<creatCredentialSchemaType>({
-    resolver: zodResolver(creatCredentialSchema),
+
+  const form = useForm<createCredentialSchemaType>({
+    resolver: zodResolver(createCredentialSchema),
     defaultValues: {},
   });
-
   const { mutate, isPending } = useMutation({
-    mutationFn: CreateCredential,
+    mutationFn: createCredential,
     onSuccess: () => {
-      toast.success("Credential created.", { id: "create-credential" }); 
-      form.reset();
-      setOpen(false); 
+      toast.success("Credential created", { id: "create-credential" });
+      setOpen(false);
     },
-    onError: () => {
-      toast.error("failed to create credential", { id: "create-credential" });
+    onError: (error: any) => {
+      toast.error("Failed to create credential", { id: "create-credential" });
     },
   });
+
   const onSubmit = useCallback(
-    (values: creatCredentialSchemaType) => {
+    (values: createCredentialSchemaType) => {
       toast.loading("Creating credential...", { id: "create-credential" });
       mutate(values);
     },
@@ -54,17 +55,16 @@ function CreateCredentialDialog({ triggerText }: { triggerText?: string }) {
   return (
     <Dialog
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={(open) => {
+        form.reset();
+        setOpen(open);
+      }}
     >
       <DialogTrigger asChild>
-        <Button>{triggerText ?? "Create"}</Button>
+        <Button>{triggeredText ?? "Create credential"}</Button>
       </DialogTrigger>
       <DialogContent className="px-0">
-        <CustomDialogHeader
-          icon={ShieldEllipsis}
-          title="Create credential"
-          subTitle="Start building your workflow"
-        />
+        <CustomDialogHeader icon={Layers2Icon} title="Create Credential" />
         <div className="p-6">
           <Form {...form}>
             <form
@@ -77,16 +77,16 @@ function CreateCredentialDialog({ triggerText }: { triggerText?: string }) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="flex gap-1 items-center">
-                      Name
-                      <p className="text-xs text-primary">(required)</p>
+                      Name <p className="text-xs text-primary">(required)</p>
                     </FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
                     <FormDescription>
-                      Enter a descriptive and unique name for credential.
-                      This name will be used to identify the credential.
+                      Enter an unique and descriptive name for credential <br />
+                      This name will be used to identify credential
                     </FormDescription>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -96,22 +96,25 @@ function CreateCredentialDialog({ triggerText }: { triggerText?: string }) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="flex gap-1 items-center">
-                      Value
-                      <p className="text-xs text-primary">(required)</p>
+                      Description{" "}
+                      <p className="text-xs text-muted-foreground">
+                        (optinoal)
+                      </p>
                     </FormLabel>
                     <FormControl>
-                      <Textarea className="resize-none" {...field} />
+                      <Textarea {...field} className="resize-none" />
                     </FormControl>
                     <FormDescription>
-                      Enter the value assosiated with this credential.
-                      <br /> This value will be encrypted and stored securely.
+                      Enter the value assosiated with this credential <br />
+                      This value wiil be securely encrypted and stored
                     </FormDescription>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
+
               <Button type="submit" className="w-full" disabled={isPending}>
-                {!isPending && "SAVE"}
-                {isPending && <Loader2 className="animate-spin" />}
+                {!isPending ? "Proceed" : <Loader2 className="animate-spin" />}
               </Button>
             </form>
           </Form>
@@ -120,4 +123,5 @@ function CreateCredentialDialog({ triggerText }: { triggerText?: string }) {
     </Dialog>
   );
 }
+
 export default CreateCredentialDialog;

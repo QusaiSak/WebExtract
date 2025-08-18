@@ -25,10 +25,10 @@ function Logo({
       </div>
       <div>
         <span className="bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
-          Scrape
+          Web
         </span>
         <span className="bg-gradient-to-r from-stone-600 to-stone-800 bg-clip-text text-transparent">
-          Flow
+          Extract
         </span>
       </div>
   

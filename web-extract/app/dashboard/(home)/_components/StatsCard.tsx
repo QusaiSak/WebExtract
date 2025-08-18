@@ -1,7 +1,7 @@
 import { LucideIcon } from "lucide-react";
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import ReactCountUpWrapper from "@/components/ReactCountUpWrapper";
+import ReactCountupWrapper from "@/components/ReactCountupWrapper";
 
 interface Props {
   title: string;
@@ -20,7 +20,7 @@ function StatsCard(props: Props) {
         />
         <CardContent>
           <div className="text-2xl font-bold text-primary">
-            <ReactCountUpWrapper value={props.value} />
+            <ReactCountupWrapper value={props.value} />
           </div>
         </CardContent>
       </CardHeader>
