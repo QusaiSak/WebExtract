@@ -17,13 +17,18 @@ import UserAvailableCreditsBadge from "./UserAvailableCreditsBadge";
 
 const routes = [
   {
-    href: "",
+    href: "dashboard",
     label: "Home",
     icon: HomeIcon,
   },
   {
     href: "dashboard/workflows",
     label: "Workflows",
+    icon: Layers2Icon,
+  },
+  {
+    href: "dashboard/chatAi",
+    label: "Chat AI",
     icon: Layers2Icon,
   },
   {

@@ -1,9 +1,9 @@
 import prisma from "@/lib/prisma";
-import { ExecuteWorkflow } from "@/lib/workfow/executeWorkflow";
-import { TaskRegistry } from "@/lib/workfow/task/registry";
 import { ExecutionPhaseStatus, WorkflowExecutionPlan, WorkflowExecutionStatus, WorkflowExecutionTrigger } from "@/types/workflow";
 import { timingSafeEqual } from "crypto";
 import parser from "cron-parser"
+import { TaskRegistry } from "@/lib/workflow/task/Registry";
+import { executeWorkflow } from "@/lib/workflow/executeWorkflow";
 
 function isValidSecret(secret:string){
         const API_SECRET = process.env.API_SECRET;
@@ -83,7 +83,7 @@ export async function GET(req:Request){
             }
         });
     
-        await ExecuteWorkflow(execution.id,nextRun);
+        await executeWorkflow(execution.id,nextRun);
     
         return new Response(null,{status:200})
     

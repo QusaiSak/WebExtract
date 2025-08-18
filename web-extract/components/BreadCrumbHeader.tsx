@@ -2,7 +2,7 @@
 import React, { use } from "react";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "./ui/breadcrumb";
 import { usePathname } from "next/navigation";
-import { MobileSidebar } from "./Sidebar";
+import { MobileSidebar } from "./ui/sidebar";
 
 function BreadCrumbHeader() {
   const pathName = usePathname();

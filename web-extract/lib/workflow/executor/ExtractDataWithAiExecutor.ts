@@ -44,10 +44,15 @@ export async function ExtractDataWithAiExecutor(
 
     const openAi = new OpenAi({
       apiKey: plainCredentialValue,
+      baseURL: "https://openrouter.ai/api/v1",
+      defaultHeaders: {
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+        "X-Title": "WebExtract AI Data Extraction",
+      },
     });
 
     const response = await openAi.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "openai/gpt-oss-20b:free",
       messages: [
         {
           role: "system",

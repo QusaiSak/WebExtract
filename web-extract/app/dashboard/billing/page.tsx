@@ -1,5 +1,5 @@
 import { getAvailableCredits, getUserPurchases } from "@/actions/billings";
-import ReactCountUpWrapper from "@/components/ReactCountUpWrapper";
+import ReactCountupWrapper from "@/components/ReactCountupWrapper";
 import {
   Card,
   CardContent,
@@ -48,7 +48,7 @@ async function BalanceCard() {
               Available Credits
             </h3>
             <p className="text-4xl font-bold text-primary">
-              <ReactCountUpWrapper value={userBalance} />
+              <ReactCountupWrapper value={userBalance} />
             </p>
           </div>
           <CoinsIcon
