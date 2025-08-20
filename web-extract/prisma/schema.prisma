@@ -95,3 +95,24 @@ model Credential {
 
   @@unique([userId, name])
 }
+
+model UserPurchase {
+  id          String   @id @default(cuid())
+  userId      String
+  stripeId    String
+  description String
+  amount      Int
+  currency    String
+  date        DateTime @default(now())
+}
+
+model AiConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  messages  Json     // Array of {role, content, timestamp}
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ai_conversations")
+}

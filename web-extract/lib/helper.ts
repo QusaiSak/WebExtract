@@ -1,4 +1,5 @@
-import { ExecutionPhase } from "@prisma/client";
+import { ExecutionPhase } from '@prisma/client';
+
 import { endOfMonth, intervalToDuration, startOfMonth } from "date-fns";
 import { AppNode, Period } from "./types";
 import { TaskRegistry } from "./workflow/task/Registry";

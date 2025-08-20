@@ -8,159 +8,196 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
 export async function InitializeUserBalance() {
-  const { userId } = await auth();
+  try {
+    const { userId } = await auth();
 
-  if (!userId) {
-    throw new Error("User not authenticated");
+    if (!userId) {
+      return 0;
+    }
+
+    // Check if user balance already exists
+    const existingBalance = await prisma.userBalance?.findUnique?.({
+      where: {
+        userId,
+      },
+    });
+
+    if (existingBalance) {
+      return existingBalance.credits || 0;
+    }
+
+    // Create initial balance for new user
+    const newBalance = await prisma.userBalance?.create?.({
+      data: {
+        userId,
+        credits: 1000, // Give new users 1000 credits
+      },
+    });
+
+    return newBalance?.credits || 0;
+  } catch (error) {
+    return 0;
   }
-
-  // Check if user balance already exists
-  const existingBalance = await prisma.userBalance.findUnique({
-    where: {
-      userId,
-    },
-  });
-
-  if (existingBalance) {
-    return existingBalance.credits;
-  }
-
-  // Create initial balance for new user
-  const newBalance = await prisma.userBalance.create({
-    data: {
-      userId,
-      credits: 1000, // Give new users 1000 credits
-    },
-  });
-
-  return newBalance.credits;
 }
 
 export async function getAvailableCredits() {
-  const { userId } = await auth();
+  try {
+    const { userId } = await auth();
 
-  if (!userId) {
-    throw new Error("Unauthenticated");
-  }
+    if (!userId) {
+      return 0;
+    }
 
-  const balance = await prisma.userBalance.findUnique({
-    where: {
-      userId,
-    },
-  });
-
-  if (!balance) return -1;
-
-  return balance.credits;
-}
-export async function setupUser() {
-  const { userId } = await auth();
-
-  if (!userId) {
-    throw new Error("Unauthenticated");
-  }
-
-  const userBalance = await prisma.userBalance.findUnique({
-    where: {
-      userId,
-    },
-  });
-
-  if (!userBalance) {
-    await prisma.userBalance.create({
-      data: {
+    const balance = await prisma.userBalance?.findUnique?.({
+      where: {
         userId,
-        credits: 200,
       },
     });
-  }
 
-  redirect("/home");
+    return balance?.credits || 0;
+  } catch (error) {
+    return 0;
+  }
+}
+
+export async function setupUser() {
+  try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      redirect("/");
+      return;
+    }
+
+    const userBalance = await prisma.userBalance?.findUnique?.({
+      where: {
+        userId,
+      },
+    });
+
+    if (!userBalance) {
+      await prisma.userBalance?.create?.({
+        data: {
+          userId,
+          credits: 200,
+        },
+      });
+    }
+
+    redirect("/home");
+  } catch (error) {
+    redirect("/");
+  }
 }
 
 export async function purchaseCredits(packId: PackId) {
-  const { userId } = await auth();
+  try {
+    console.log('purchaseCredits called with packId:', packId)
+    
+    const { userId } = await auth();
 
-  if (!userId) {
-    throw new Error("Unauthenticated");
-  }
+    if (!userId) {
+      throw new Error("Unauthenticated");
+    }
 
-  const seletedPack = getCreditsPack(packId);
+    console.log('User ID:', userId)
 
-  if (!seletedPack) {
-    throw new Error("Inavlid package");
-  }
+    const seletedPack = getCreditsPack(packId);
 
-  const priceId = seletedPack?.priceId;
+    if (!seletedPack) {
+      throw new Error("Invalid package");
+    }
 
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    invoice_creation: {
-      enabled: true,
-    },
-    success_url: getAppUrl("billing"),
-    cancel_url: getAppUrl("billing"),
+    console.log('Selected pack:', seletedPack)
 
-    // adding custom details to session info via metadata
-    metadata: {
-      userId,
-      packId,
-    },
-    line_items: [
-      {
-        quantity: 1,
-        price: priceId, // here price refer to priceId from stripe
+    const priceId = seletedPack?.priceId;
+
+    console.log('Creating Stripe session with priceId:', priceId)
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      invoice_creation: {
+        enabled: true,
       },
-    ],
-  });
+      success_url: getAppUrl("dashboard/billing"), // ✅ Correct
+      cancel_url: getAppUrl("dashboard/billing"),  // ✅ Correct
 
-  if (!session.url) {
-    throw new Error("Cannot create stripe session");
+      // adding custom details to session info via metadata
+      metadata: {
+        userId,
+        packId,
+      },
+      line_items: [
+        {
+          quantity: 1,
+          price: priceId, // here price refer to priceId from stripe
+        },
+      ],
+    });
+
+    console.log('Stripe session created:', session.id, 'URL:', session.url)
+
+    if (!session.url) {
+      throw new Error("Cannot create stripe session");
+    }
+
+    return { url: session.url, success: true };
+  } catch (error) {
+    console.error('Error in purchaseCredits:', error)
+    throw error; // Let the client handle the error
   }
-
-  redirect(session.url);
 }
 
 export async function getUserPurchases() {
-  const { userId } = await auth();
+  try {
+    const { userId } = await auth();
 
-  if (!userId) {
-    throw new Error("Unauthenticated");
+    if (!userId) {
+      return [];
+    }
+
+    const purchases = await prisma.userPurchase?.findMany?.({
+      where: {
+        userId,
+      },
+      orderBy: {
+        date: "desc",
+      },
+    });
+
+    return purchases || [];
+  } catch (error) {
+    return [];
   }
-
-  return await prisma.userPurchase.findMany({
-    where: {
-      userId,
-    },
-    orderBy: {
-      date: "desc",
-    },
-  });
 }
 
 export async function downloadInvoice(id: string) {
-  const { userId } = await auth();
+  try {
+    const { userId } = await auth();
 
-  if (!userId) {
-    throw new Error("Unauthenticated");
+    if (!userId) {
+      return null;
+    }
+
+    const purchase = await prisma.userPurchase?.findUnique?.({
+      where: {
+        id,
+        userId,
+      },
+    });
+
+    if (!purchase) {
+      return null;
+    }
+
+    const session = await stripe.checkout.sessions.retrieve(purchase.stripeId);
+    if (!session.invoice) {
+      return null;
+    }
+
+    const invoice = await stripe.invoices.retrieve(session.invoice as string);
+    return invoice.hosted_invoice_url || null;
+  } catch (error) {
+    return null;
   }
-
-  const purchase = await prisma.userPurchase.findUnique({
-    where: {
-      userId,
-      id,
-    },
-  });
-
-  if (!purchase) {
-    throw new Error("Bad request");
-  }
-
-  const session = await stripe.checkout.sessions.retrieve(purchase.stripeId);
-  if (!session.invoice) {
-    throw new Error("Invoice not found");
-  }
-
-  const invoice = await stripe.invoices.retrieve(session.invoice as string);
-  return invoice.hosted_invoice_url;
 }

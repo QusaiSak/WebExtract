@@ -1,5 +1,6 @@
 "use client";
 import {
+  CirclePlayIcon,
   CoinsIcon,
   HomeIcon,
   Layers2Icon,
@@ -12,7 +13,6 @@ import Link from "next/link";
 import { Button, buttonVariants } from "./ui/button";
 import { usePathname } from "next/navigation";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
-import UserAvailableCredits from "./UserAvailableCreditsBadge";
 import UserAvailableCreditsBadge from "./UserAvailableCreditsBadge";
 
 const routes = [
@@ -29,11 +29,11 @@ const routes = [
   {
     href: "dashboard/chatAi",
     label: "Chat AI",
-    icon: Layers2Icon,
+    icon: CirclePlayIcon,
   },
   {
     href: "dashboard/credentials",
-    label: "Crdentials",
+    label: "Credentials",
     icon: ShieldCheckIcon,
   },
   {
@@ -55,7 +55,7 @@ function DesktopSidebar() {
         <Logo />
       </div>
       <div className="p-2"><UserAvailableCreditsBadge/>  </div>
-      <div className="flex flex-col p-2 gap-2">
+      <div className="flex flex-col p-2 mx-auto items-start gap-2">
         {routes.map((route) => (
           <Link
             key={route.href}

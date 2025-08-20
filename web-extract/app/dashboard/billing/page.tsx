@@ -27,7 +27,7 @@ function BillingPage() {
       <CreditsPurchase />
       <Suspense fallback={<Skeleton className="h-[300px] w-full" />}>
         <CreditUsageCard />
-      </Suspense>{" "}
+      </Suspense>
       <Suspense fallback={<Skeleton className="h-[300px] w-full" />}>
         <TransactionHistory />
       </Suspense>
@@ -124,14 +124,19 @@ async function TransactionHistory() {
 }
 
 function formatDate(date: Date) {
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat("en-IN", {
     year: "numeric",
     month: "long",
     day: "numeric",
   }).format(date);
 }
+
 function formatAmount(amount: number, currency: string) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
-    amount / 100
-  );
+  // Convert cents/paise to actual currency amount
+  const actualAmount = currency.toLowerCase() === 'inr' ? amount / 100 : amount / 100;
+  
+  return new Intl.NumberFormat("en-IN", { 
+    style: "currency", 
+    currency: currency.toUpperCase() 
+  }).format(actualAmount);
 }

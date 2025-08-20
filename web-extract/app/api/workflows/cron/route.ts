@@ -1,6 +1,7 @@
-import { getAppUrl } from "@/lib/helper/appUrl";
+
+import { getAppUrl } from "@/lib/helper";
 import prisma from "@/lib/prisma";
-import { WorkflowStatus } from "@/types/workflow";
+import { WorkflowStatus } from "@/lib/types";
 import { Trigger } from "@radix-ui/react-dialog";
 
 export async function GET(req: Request) {

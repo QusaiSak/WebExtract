@@ -22,13 +22,28 @@ function CreditsPurchase() {
 
   const mutation = useMutation({
     mutationFn: purchaseCredits,
-    onSuccess: () => {
-      toast.success("Credits credited successfully", { id: "purchase" });
+    onSuccess: (data) => {
+      if (data && data.url) {
+        // Redirect to Stripe checkout
+        window.location.href = data.url;
+      } else {
+        toast.error("Failed to create checkout session", { id: "purchase" });
+      }
     },
-    onError: () => {
-      toast.success("Something went wrong", { id: "purchase" });
+    onError: (error) => {
+      console.error('Purchase error:', error);
+      toast.error("Something went wrong", { id: "purchase" });
     },
   });
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(price );
+  };
 
   return (
     <Card>
@@ -49,7 +64,7 @@ function CreditsPurchase() {
           {CreditsPack.map((pack) => (
             <div
               key={pack.id}
-              className="flex items-center space-x-3 bg-secondary/50 rounded-lg p-3 hover:bg-secondary"
+              className="flex items-center space-x-3 bg-secondary/50 rounded-lg p-3 hover:bg-secondary transition-colors cursor-pointer"
               onClick={() => setSelectedPack(pack.id)}
             >
               <RadioGroupItem value={pack.id} id={pack.id} />
@@ -57,12 +72,22 @@ function CreditsPurchase() {
                 htmlFor={pack.id}
                 className="flex justify-between cursor-pointer w-full"
               >
-                <span className="font-medium">
-                  {pack.name}-{pack.label}
-                </span>
-                <span className="font-bold text-primary">
-                  ${(pack.price / 100).toFixed(2)}
-                </span>
+                <div className="flex flex-col">
+                  <span className="font-medium text-base">
+                    {pack.name}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {pack.label}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="font-bold text-primary text-lg">
+                    {formatPrice(pack.price)}
+                  </span>
+                  <div className="text-xs text-muted-foreground">
+                    ≈ ₹{(pack.price / pack.credits ).toFixed(2)}/credit
+                  </div>
+                </div>
               </Label>
             </div>
           ))}
@@ -75,7 +100,7 @@ function CreditsPurchase() {
           onClick={() => mutation.mutate(selectedPack)}
         >
           <CreditCardIcon className="h-5 w-5 mr-2" />
-          Purchase credits
+          {mutation.isPending ? "Processing..." : "Purchase credits"}
         </Button>
       </CardFooter>
     </Card>

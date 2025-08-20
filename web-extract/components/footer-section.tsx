@@ -1,6 +1,7 @@
 "use client"
 
 import { Twitter, Github, Linkedin } from "lucide-react"
+import Logo from "./Logo"
 
 export function FooterSection() {
   return (
@@ -8,7 +9,7 @@ export function FooterSection() {
       {/* Left Section: Logo, Description, Social Links */}
       <div className="flex flex-col justify-start items-start gap-8 p-4 md:p-8">
         <div className="flex gap-3 items-stretch justify-center">
-          <div className="text-center text-foreground text-xl font-semibold leading-4">Pointer</div>
+          <Logo/>
         </div>
         <p className="text-foreground/90 text-sm font-medium leading-[18px] text-left">Coding made effortless</p>
         <div className="flex justify-start items-start gap-3">

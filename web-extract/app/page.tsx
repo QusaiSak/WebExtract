@@ -22,16 +22,16 @@ export default function LandingPage() {
         <AnimatedSection id="features-section" className="relative z-10 max-w-[1320px] mx-auto mt-[411px] md:mt-[400px]" delay={0.2}>
           <BentoSection />
         </AnimatedSection>
-        <AnimatedSection
+        {/* <AnimatedSection
           id="pricing-section"
           className="relative z-10 max-w-[1320px] mx-auto mt-8 md:mt-16"
           delay={0.2}
         >
           <PricingSection />
-        </AnimatedSection>
-        <AnimatedSection className="relative z-10 max-w-[1320px] mx-auto mt-8 md:mt-16" delay={0.2}>
+        </AnimatedSection> */}
+        {/* <AnimatedSection className="relative z-10 max-w-[1320px] mx-auto mt-8 md:mt-16" delay={0.2}>
           <CTASection />
-        </AnimatedSection>
+        </AnimatedSection> */}
         <AnimatedSection className="relative z-10 max-w-[1320px] mx-auto mt-8 md:mt-16" delay={0.2}>
           <FooterSection />
         </AnimatedSection>
