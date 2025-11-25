@@ -20,14 +20,16 @@ export function flowToExecutionPlan(
   nodes: AppNode[],
   edges: Edge[]
 ): flowToExecutionPlan {
-  const entryPoint = nodes.find(
+  let entryPoint = nodes.find(
     (node) => TaskRegistry[node.data.type].isEntryPoint
   );
 
   if (!entryPoint) {
-    return {
-      error: { type: FlowToExecutionPlanValidationError.NO_ENTRY },
-    };
+    // Fallback: pick any node without incomers; if none, pick first node
+    const nodesWithoutIncoming = nodes.filter((n) => {
+      return !edges.some((e) => e.target === n.id);
+    });
+    entryPoint = nodesWithoutIncoming[0] ?? nodes[0];
   }
 
   const inputsWithErrors: AppNodeMissingInputs[] = [];
@@ -132,17 +134,14 @@ function getInvalidInputs(node: AppNode, edges: Edge[], planned: Set<string>) {
     if (requiredInputProvidedbyVisitedOutput) {
       // The input is required and value is provided by the task that is already planned
       continue;
-    } else if (!input.required) {
-      // If the input is not required but there is output linked to it.
-
-      // Then checking the output is already planned i.e the output doesn't depends on this input
-      if (!inputLinkedToOutput) continue;
-
-      if (inputLinkedToOutput && planned.has(inputLinkedToOutput.source)) {
-        // The output is providing a value to input.
-        continue;
-      }
     }
+
+    if (!input.required) {
+      // If the input is not required, it's always valid regardless of connections
+      continue;
+    }
+
+    // If we reach here, the input is required but not satisfied
     invalidInputs.push(input.name);
   }
   return invalidInputs;

@@ -30,6 +30,7 @@ export async function getWorkflowsForUser() {
 
 export async function createWorkflow(form: createWorkflowShemaType) {
   const { success, data } = createWorkflowShema.safeParse(form);
+  console.log(data)
 
   if (!success) {
     throw new Error("Invalid form data");
@@ -45,7 +46,7 @@ export async function createWorkflow(form: createWorkflowShemaType) {
     nodes: [],
     edges: [],
   };
-  initWorkflow.nodes.push(createFlowNode(TaskType.LAUNCH_BROWSER));
+  // Removed automatic Launch Browser node - users can now choose their starting point
   const result = await prisma.workflow.create({
     data: {
       userId,
@@ -57,8 +58,7 @@ export async function createWorkflow(form: createWorkflowShemaType) {
   if (!result) {
     throw new Error("Failed to create workflow");
   }
-
-  redirect(`/workflow/editor/${result.id}`);
+  return result.id;
 }
 
 export async function deleteWorkflow(workflowId: string) {
@@ -75,16 +75,13 @@ export async function deleteWorkflow(workflowId: string) {
     },
   });
 
-  revalidatePath("/workflows");
+  revalidatePath("/dashboard/workflows");
 }
 
-export async function updateWorkFlow({
-  id,
-  definition,
-}: {
-  id: string;
-  definition: string;
-}) {
+export async function updateWorkFlow(
+  id: string,
+  definition: string
+) {
   const { userId } = await auth();
 
   if (!userId) {

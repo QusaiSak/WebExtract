@@ -9,7 +9,9 @@ import {
   SignedOut,
   UserButton,
 } from "@clerk/nextjs";
-import { Toaster } from "react-hot-toast";
+import { Toaster } from "sonner";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -34,8 +36,10 @@ export default function RootLayout({
     >
       <html lang="en">
         <body className={inter.className}>
-          <AppProviders>{children}</AppProviders>
-          <Toaster position="bottom-right" reverseOrder={false} />
+          <ErrorBoundary>
+            <AppProviders>{children}</AppProviders>
+            <Toaster position="top-right" richColors />
+          </ErrorBoundary>
         </body>
       </html>
     </ClerkProvider>

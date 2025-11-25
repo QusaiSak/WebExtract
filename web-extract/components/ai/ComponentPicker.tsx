@@ -22,7 +22,12 @@ import {
   ScrollIcon,
   Search,
   Plus,
-  Sparkles
+  Sparkles,
+  SearchIcon,
+  LanguagesIcon,
+  FileTextIcon,
+  FileSpreadsheetIcon,
+  BarChart3Icon
 } from 'lucide-react'
 
 interface ComponentInfo {
@@ -48,7 +53,6 @@ export const COMPONENT_LIBRARY: ComponentInfo[] = [
     outputs: ['Web page'],
     icon: GlobeIcon,
     credits: 5,
-    isEntryPoint: true,
     examples: [
       'Open Amazon product page',
       'Navigate to login page',
@@ -218,6 +222,114 @@ export const COMPONENT_LIBRARY: ComponentInfo[] = [
       'Send data to your API',
       'Post to webhook.site for testing',
       'Deliver to database endpoint'
+    ]
+  },
+  
+  // Research and AI Components
+  {
+    type: TaskType.AI_RESEARCH_ASSISTANT,
+    name: 'AI Research Assistant',
+    description: 'Ask AI to find relevant research links for you',
+    detailedDescription: 'Uses AI to search for and suggest credible, relevant URLs for your research topic. Perfect for academic research, market analysis, or content discovery.',
+    inputs: ['Research Query', 'Number of Links', 'Credentials'],
+    outputs: ['Research Links'],
+    icon: SearchIcon,
+    credits: 3,
+    isEntryPoint: true,
+    examples: [
+      'Find articles about renewable energy in India',
+      'Research papers on AI in healthcare',
+      'Latest studies on climate change effects'
+    ]
+  },
+  {
+    type: TaskType.TRANSLATE_TEXT,
+    name: 'Translate Text',
+    description: 'Translates content between languages',
+    detailedDescription: 'AI-powered translation service supporting multiple Indian languages including Hindi, Tamil, Bengali, Marathi, and Kannada. Maintains context and meaning.',
+    inputs: ['Text Content', 'Target Language', 'Credentials'],
+    outputs: ['Translated Text', 'Source Language'],
+    icon: LanguagesIcon,
+    credits: 2,
+    examples: [
+      'Translate Hindi content to English',
+      'Convert English research to Tamil',
+      'Translate Bengali articles to Hindi'
+    ]
+  },
+  {
+    type: TaskType.DETECT_LANGUAGE,
+    name: 'Detect Language',
+    description: 'Automatically detects the language of text content',
+    detailedDescription: 'Identifies the language and script of input text with confidence scoring. Supports major Indian languages and provides language codes for further processing.',
+    inputs: ['Text Content'],
+    outputs: ['Language Code', 'Confidence Score', 'Text Content'],
+    icon: GlobeIcon,
+    credits: 1,
+    examples: [
+      'Detect Hindi content from news sites',
+      'Identify Tamil text in social media',
+      'Classify multilingual forum posts'
+    ]
+  },
+  {
+    type: TaskType.GENERATE_DOCUMENT,
+    name: 'Generate Document',
+    description: 'AI-powered document generation for research',
+    detailedDescription: 'Converts scraped data into research-ready documents including research papers, business reports, executive summaries, and thesis chapters with proper formatting.',
+    inputs: ['Content Data', 'Document Type', 'Custom Instructions', 'Credentials'],
+    outputs: ['Generated Document'],
+    icon: FileTextIcon,
+    credits: 5,
+    examples: [
+      'Create research paper from collected data',
+      'Generate business report from market analysis',
+      'Produce executive summary from findings'
+    ]
+  },
+  {
+    type: TaskType.EXPORT_TO_CSV,
+    name: 'Export to CSV',
+    description: 'Exports data to CSV format with metadata',
+    detailedDescription: 'Converts structured data into CSV format suitable for analysis, data processing, or import into other tools. Includes optional metadata for research tracking.',
+    inputs: ['Data', 'Include Metadata'],
+    outputs: ['CSV File URL'],
+    icon: FileSpreadsheetIcon,
+    credits: 1,
+    examples: [
+      'Export scraped product data to CSV',
+      'Create data file for Excel analysis',
+      'Generate CSV for database import'
+    ]
+  },
+  {
+    type: TaskType.EXPORT_TO_POWERBI,
+    name: 'Export to Power BI',
+    description: 'Creates Power BI-ready CSV with analytics templates',
+    detailedDescription: 'Generates optimized CSV files and templates specifically designed for Power BI analysis. Includes pre-calculated metrics and visualization recommendations.',
+    inputs: ['Data', 'Chart Type'],
+    outputs: ['Power BI CSV', 'Template File'],
+    icon: BarChart3Icon,
+    credits: 2,
+    examples: [
+      'Create trend analysis for Power BI',
+      'Generate pie chart data structure',
+      'Export scatter plot ready data'
+    ]
+  },
+  {
+    type: TaskType.EXPORT_TO_PDF,
+    name: 'Export to PDF',
+    description: 'Renders HTML or text content into a downloadable PDF',
+    detailedDescription: 'Converts provided HTML or plain text into a PDF using a headless browser for accurate rendering, then provides a short auto-download link.',
+    inputs: ['Content', 'File Name'],
+    outputs: ['PDF Base64', 'Download URL', 'Auto Download'],
+    icon: FileTextIcon,
+    credits: 2,
+    examples: [
+      'Export generated document to PDF',
+      'Render HTML content to A4 PDF',
+      'Create a PDF from plain text'
     ]
   },
 ]

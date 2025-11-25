@@ -21,6 +21,15 @@ export enum TaskType {
   ADD_PROPERTY_TO_JSON = "ADD_PROPERTY_TO_JSON",
   NAVIGATE_URL = "NAVIGATE_URL",
   SCROLL_TO_ELEMENT = "SCROLL_TO_ELEMENT",
+  
+  // Research and AI tasks
+  AI_RESEARCH_ASSISTANT = "AI_RESEARCH_ASSISTANT",
+  TRANSLATE_TEXT = "TRANSLATE_TEXT",
+  DETECT_LANGUAGE = "DETECT_LANGUAGE",
+  GENERATE_DOCUMENT = "GENERATE_DOCUMENT",
+  EXPORT_TO_CSV = "EXPORT_TO_CSV",
+  EXPORT_TO_POWERBI = "EXPORT_TO_POWERBI",
+  EXPORT_TO_PDF = "EXPORT_TO_PDF",
 }
 export enum TaskParamType {
   STRING = "STRING",
@@ -49,7 +58,7 @@ export enum ExecutionPhaseStatus {
 }
 
 export enum WorkflowExecutionTrigger {
-  MANUAl = "MANUAL",
+  MANUAL = "MANUAL",
   CRON = "CRON",
 }
 
@@ -111,15 +120,19 @@ export type Enviornment = {
   };
 };
 
-export const LogLevels = ["info", "error"] as const;
+// Expanded to support richer log levels used across executors
+export const LogLevels = ["info", "error", "success", "warning"] as const;
 export type LogLevel = (typeof LogLevels)[number];
 
 export type Log = { message: string; level: LogLevel; timeStamp: Date };
 
 export type LogFunction = (message: string) => void;
 
+export type LogListener = (log: Log) => void | Promise<void>;
+
 export type LogCollector = {
   getAll(): Log[];
+  addListener?(listener: LogListener): () => void;
 } & {
   [key in LogLevel]: LogFunction;
 };

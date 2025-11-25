@@ -6,7 +6,7 @@ import { parseAIWorkflow, validateWorkflow } from '@/lib/workflow-ai'
 
 export async function POST(request: NextRequest): Promise<Response> {
   try {
-    const user = await currentUser()
+    const user = await currentUser() 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

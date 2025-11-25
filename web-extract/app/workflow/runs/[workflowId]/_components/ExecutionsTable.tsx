@@ -38,8 +38,8 @@ function ExecutionsTable({
   const router = useRouter();
 
   return (
-    <div className="border rounded-lg shadow-md overflow-auto ">
-      <Table className="h-full">
+    <div className="max-h-[calc(100vh-160px)] overflow-y-auto">
+      <Table className="min-w-full table-auto">
         <TableHeader className="bg-muted">
           <TableRow>
             <TableHead>Id</TableHead>
@@ -50,7 +50,7 @@ function ExecutionsTable({
             </TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className="gap-2 h-full overflow-auto">
+        <TableBody>
           {query.data.map((execution) => {
             const duration = datesToDurationString(
               execution.completedAt,
@@ -64,7 +64,7 @@ function ExecutionsTable({
             return (
               <TableRow
                 key={execution.id}
-                className="cursor-pointer"
+                className="cursor-pointer hover:bg-muted/40"
                 onClick={() => {
                   router.push(
                     `/workflow/runs/${execution.workflowId}/${execution.id}`
@@ -72,40 +72,24 @@ function ExecutionsTable({
                 }}
               >
                 <TableCell>
-                  <div className="flex flex-col">
-                    <span className="font-semibold">{execution.id}</span>
-                    <div className="text-muted-foreground text-xs flex gap-1 items-center">
-                      <span className="">Triggered via</span>
-                      <Badge variant={"outline"}>{execution.trigger}</Badge>
-                    </div>
+                  <span className="font-semibold text-sm">{execution.id}</span>
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-2 items-center">
+                    <ExecutionStatusIndicator
+                      status={execution.status as WorkflowExecutionStatus}
+                    />
+                    <span className="font-medium text-sm capitalize">
+                      {execution.status}
+                    </span>
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-col">
-                    <div className="flex gap-2 items-center">
-                      <ExecutionStatusIndicator
-                        status={execution.status as WorkflowExecutionStatus}
-                      />
-                      <span className="font-semibold capitalize">
-                        {execution.status}
-                      </span>
-                    </div>
-                    <div className="text-muted-foreground text-xs mx-5">
-                      {duration}
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col">
-                    <div className="flex gap-2 items-center">
-                      <CoinsIcon size={16} className="text-primary" />
-                      <span className="font-semibold capitalize">
-                        {execution.creditsConsumed}
-                      </span>
-                    </div>
-                    <div className="text-muted-foreground text-xs mx-5">
-                      Credits
-                    </div>
+                  <div className="flex gap-2 items-center">
+                    <CoinsIcon size={16} className="text-primary" />
+                    <span className="font-medium text-sm">
+                      {execution.creditsConsumed}
+                    </span>
                   </div>
                 </TableCell>
                 <TableCell className="text-right text-muted-foreground capitalize first:uppercase">

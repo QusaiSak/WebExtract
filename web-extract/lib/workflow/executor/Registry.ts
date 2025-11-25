@@ -11,6 +11,13 @@ import { ReadPropertyFromJsonExecutor } from "./ReadPropertyFromJsonExecutor";
 import { AddPropertyToJsonExecutor } from "./AddPropertyToJsonExecutor ";
 import { NavigateUrlExecutor } from "./NavigateUrlExecutor";
 import { ScrollToElementExecutor } from "./ScrollToElementExecutor";
+import { AiResearchAssistantExecutor } from "./AiResearchAssistantExecutor";
+import { TranslateTextExecutor } from "./TranslateTextExecutor";
+import { DetectLanguageExecutor } from "./DetectLanguageExecutor";
+import { GenerateDocumentExecutor } from "./GenerateDocumentExecutor";
+import { ExportToCSVExecutor } from "./ExportToCSVExecutor";
+import { ExportToPowerBIExecutor } from "./ExportToPowerBIExecutor";
+import { ExportToPDFExecutor } from "./ExportToPDFExecutor";
 
 type ExecutorFunction<T extends WorkflowTask> = (
   enviornment: ExecutionEnviornment<T>
@@ -33,4 +40,13 @@ export const ExecutorRegistry: RegistryType = {
   ADD_PROPERTY_TO_JSON: AddPropertyToJsonExecutor,
   NAVIGATE_URL: NavigateUrlExecutor,
   SCROLL_TO_ELEMENT: ScrollToElementExecutor,
+  
+  // Research and AI executors
+  AI_RESEARCH_ASSISTANT: AiResearchAssistantExecutor,
+  TRANSLATE_TEXT: TranslateTextExecutor,
+  DETECT_LANGUAGE: DetectLanguageExecutor,
+  GENERATE_DOCUMENT: GenerateDocumentExecutor,
+  EXPORT_TO_CSV: ExportToCSVExecutor,
+  EXPORT_TO_POWERBI: ExportToPowerBIExecutor,
+  EXPORT_TO_PDF: ExportToPDFExecutor,
 };

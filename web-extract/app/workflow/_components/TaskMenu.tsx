@@ -20,13 +20,37 @@ function TaskMenu() {
         type="multiple"
         className="w-full"
         defaultValue={[
+          "browser",
+          "research",
           "extraction",
-          "interactions",
+          "interactions", 
           "timings",
           "results",
           "storage",
         ]}
       >
+        <AccordionItem value="browser">
+          <AccordionTrigger className="font-bold">
+            Browser Control
+          </AccordionTrigger>
+          <AccordionContent className="flex flex-col gap-1">
+            <TaskMenuButton taskType={TaskType.LAUNCH_BROWSER} />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="research">
+          <AccordionTrigger className="font-bold">
+            Research & AI Tools
+          </AccordionTrigger>
+          <AccordionContent className="flex flex-col gap-1">
+            <TaskMenuButton taskType={TaskType.AI_RESEARCH_ASSISTANT} />
+            <TaskMenuButton taskType={TaskType.TRANSLATE_TEXT} />
+            <TaskMenuButton taskType={TaskType.DETECT_LANGUAGE} />
+            <TaskMenuButton taskType={TaskType.GENERATE_DOCUMENT} />
+            <TaskMenuButton taskType={TaskType.EXPORT_TO_CSV} />
+            <TaskMenuButton taskType={TaskType.EXPORT_TO_POWERBI} />
+            <TaskMenuButton taskType={TaskType.EXPORT_TO_PDF} />
+          </AccordionContent>
+        </AccordionItem>
         <AccordionItem value="interactions">
           <AccordionTrigger className="font-bold">
             User Interactions
@@ -64,14 +88,14 @@ function TaskMenu() {
           <AccordionContent className="flex flex-col gap-1">
             <TaskMenuButton taskType={TaskType.WAIT_FOR_ELEMENT} />
           </AccordionContent>
-          <AccordionItem value="results">
-            <AccordionTrigger className="font-bold">
-              Result delivery
-            </AccordionTrigger>
-            <AccordionContent className="flex flex-col gap-1">
-              <TaskMenuButton taskType={TaskType.DELIVER_VIA_WEBHOOK} />
-            </AccordionContent>
-          </AccordionItem>
+        </AccordionItem>
+        <AccordionItem value="results">
+          <AccordionTrigger className="font-bold">
+            Result delivery
+          </AccordionTrigger>
+          <AccordionContent className="flex flex-col gap-1">
+            <TaskMenuButton taskType={TaskType.DELIVER_VIA_WEBHOOK} />
+          </AccordionContent>
         </AccordionItem>
       </Accordion>
     </aside>

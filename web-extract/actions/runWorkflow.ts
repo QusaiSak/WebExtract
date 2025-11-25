@@ -73,7 +73,7 @@ export async function runWorkflow(form: {
       userId,
       status: WorkflowExecutionStatus.PENDING,
       startedAt: new Date(),
-      trigger: WorkflowExecutionTrigger.MANUAl,
+      trigger: WorkflowExecutionTrigger.MANUAL,
       definition: workflowDefinition,
       phases: {
         create: executionPlan.flatMap((phase) =>
@@ -102,5 +102,6 @@ export async function runWorkflow(form: {
   // This will be a long running function, so just calling it and making it run in background
   executeWorkflow(execution.id);
 
-  redirect(`/workflow/runs/${workflowId}/${execution.id}`);
+  // Return the id for client navigation
+  return execution.id;
 }

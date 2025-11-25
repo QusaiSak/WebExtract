@@ -48,23 +48,42 @@ export function parseAIWorkflow(aiResponse: string, isStreaming: boolean = false
     
     // Handle direct workflow format (nodes and edges at root level)
     if (parsed.nodes && parsed.edges) {
-      // Process and validate edges, generate handles if missing
-      const processedNodes = parsed.nodes.map((node: any) => ({
-        ...node,
-        id: node.id || generateNodeId(),
-        type: 'FlowScrapeNode',
-        dragHandle: '.drag-handle',
-        data: {
-          ...node.data,
-          inputs: node.data.inputs || {}
-        }
-      }))
+      // ALWAYS generate new UUIDs - ignore any IDs from AI to ensure proper format
+      const processedNodes = parsed.nodes.map((node: any) => {
+        const newId = generateNodeId(); // Always generate fresh UUID
+        return {
+          ...node,
+          id: newId, // Force new UUID, don't use node.id
+          type: 'FlowScrapeNode',
+          dragHandle: '.drag-handle',
+          data: {
+            ...node.data,
+            inputs: node.data.inputs || {}
+          }
+        };
+      });
 
-      const processedEdges = parsed.edges?.map((edge: any) => ({
-        ...edge,
-        id: edge.id || `edge-${edge.source}-${edge.target}`,
-        animated: true
-      })) || []
+      // Create ID mapping for edges (old AI IDs -> new UUIDs)
+      const idMapping = new Map<string, string>();
+      parsed.nodes.forEach((node: any, index: number) => {
+        if (node.id) {
+          idMapping.set(node.id, processedNodes[index].id);
+        }
+      });
+
+      // Process edges with new IDs
+      const processedEdges = parsed.edges?.map((edge: any) => {
+        const newSourceId = idMapping.get(edge.source) || edge.source;
+        const newTargetId = idMapping.get(edge.target) || edge.target;
+        
+        return {
+          ...edge,
+          id: `xy-edge__${newSourceId}${edge.sourceHandle || ''}-${newTargetId}${edge.targetHandle || ''}`,
+          source: newSourceId,
+          target: newTargetId,
+          animated: true
+        };
+      }) || [];
 
       // If edges are missing proper handles, generate them automatically
       const edgesNeedHandles = processedEdges.some((edge: any) => 
@@ -93,24 +112,42 @@ export function parseAIWorkflow(aiResponse: string, isStreaming: boolean = false
     
     // Handle wrapped workflow format (workflow object containing nodes and edges)
     if (parsed.workflow && parsed.workflow.nodes && parsed.workflow.edges) {
-      // Ensure all nodes have proper structure
-      const processedNodes = parsed.workflow.nodes.map((node: any) => ({
-        ...node,
-        id: node.id || generateNodeId(),
-        type: 'FlowScrapeNode',
-        dragHandle: '.drag-handle',
-        data: {
-          ...node.data,
-          inputs: node.data.inputs || {}
-        }
-      }))
+      // ALWAYS generate new UUIDs - ignore any IDs from AI to ensure proper format
+      const processedNodes = parsed.workflow.nodes.map((node: any) => {
+        const newId = generateNodeId(); // Always generate fresh UUID
+        return {
+          ...node,
+          id: newId, // Force new UUID, don't use node.id
+          type: 'FlowScrapeNode',
+          dragHandle: '.drag-handle',
+          data: {
+            ...node.data,
+            inputs: node.data.inputs || {}
+          }
+        };
+      });
 
-      // Process and validate edges, generate handles if missing
-      const processedEdges = parsed.workflow.edges?.map((edge: any) => ({
-        ...edge,
-        id: edge.id || `edge-${edge.source}-${edge.target}`,
-        animated: true
-      })) || []
+      // Create ID mapping for edges (old AI IDs -> new UUIDs)
+      const idMapping = new Map<string, string>();
+      parsed.workflow.nodes.forEach((node: any, index: number) => {
+        if (node.id) {
+          idMapping.set(node.id, processedNodes[index].id);
+        }
+      });
+
+      // Process edges with new IDs
+      const processedEdges = parsed.workflow.edges?.map((edge: any) => {
+        const newSourceId = idMapping.get(edge.source) || edge.source;
+        const newTargetId = idMapping.get(edge.target) || edge.target;
+        
+        return {
+          ...edge,
+          id: `xy-edge__${newSourceId}${edge.sourceHandle || ''}-${newTargetId}${edge.targetHandle || ''}`,
+          source: newSourceId,
+          target: newTargetId,
+          animated: true
+        };
+      }) || [];
 
       // If edges are missing proper handles, generate them automatically
       const edgesNeedHandles = processedEdges.some((edge: any) => 
@@ -155,11 +192,12 @@ export function validateWorkflow(workflow: { nodes: AppNode[], edges: Edge[] }):
 
   // Check if there's an entry point
   const hasEntryPoint = workflow.nodes.some(node => {
-    return node.data.type === TaskType.LAUNCH_BROWSER
+    const task = TaskRegistry[node.data.type]
+    return task && task.isEntryPoint
   })
 
   if (!hasEntryPoint) {
-    errors.push('Workflow must start with LAUNCH_BROWSER task')
+    errors.push('Workflow must have an entry point task (e.g., AI Research Assistant or Launch Browser)')
   }
 
   // Validate each node
@@ -218,7 +256,10 @@ export function optimizeWorkflowLayout(nodes: AppNode[], edges: Edge[]): { nodes
   const visited = new Set<string>()
 
   // Find entry point
-  const entryNode = nodes.find(node => node.data.type === TaskType.LAUNCH_BROWSER)
+  const entryNode = nodes.find(node => {
+    const task = TaskRegistry[node.data.type]
+    return task && task.isEntryPoint
+  })
   if (!entryNode) {
     // If no entry point, just return nodes with basic positioning
     return {

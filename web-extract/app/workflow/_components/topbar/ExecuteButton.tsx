@@ -7,16 +7,27 @@ import { useReactFlow } from "@xyflow/react";
 import { PlayIcon } from "lucide-react";
 import React from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 function ExecuteButton({ workflowId }: { workflowId: string }) {
   const generateExecutionPlan = useExecutionPlan();
+  const router = useRouter();
   const mutation = useMutation({
-    mutationFn: runWorkflow,
-    onSuccess: () => {
-      toast.success("Execution Started", { id: "flow-execution" });
+    mutationFn: async (
+      vars: { workflowId: string; flowDefinition?: string }
+    ) =>
+      runWorkflow({
+        workflowId: String(vars.workflowId),
+        flowDefinition: vars.flowDefinition
+          ? String(vars.flowDefinition)
+          : undefined,
+      }),
+    onSuccess: (executionId: string) => {
+      toast.success("Execution Started - Redirecting to live logs...", { id: "flow-execution" });
+      router.push(`/workflow/runs/${workflowId}/${executionId}`);
     },
-    onError: () => {
-      toast.error("Something went wrong", { id: "flow-execution" });
+    onError: (error: any) => {
+      toast.error(error?.message || "Something went wrong", { id: "flow-execution" });
     },
   });
 
@@ -26,18 +37,20 @@ function ExecuteButton({ workflowId }: { workflowId: string }) {
     <Button
       variant={"outline"}
       className="flex items-center gap-2"
-      disabled={mutation.isError}
+      disabled={mutation.isPending}
       onClick={() => {
         const plan = generateExecutionPlan();
         if (!plan) return;
-        toast.success("Starting execution...", { id: "flow-execution" });
+        toast.loading("Starting execution...", { id: "flow-execution" });
+        const workflowDef = toObject();
+        const plainWorkflowDef = JSON.parse(JSON.stringify(workflowDef));
         mutation.mutate({
           workflowId,
-          flowDefinition: JSON.stringify(toObject()),
+          flowDefinition: JSON.stringify(plainWorkflowDef),
         });
       }}
     >
-      <PlayIcon size={16} className="stroke-orange-400" /> Execute
+      <PlayIcon size={16} className="stroke-orange-400" /> {mutation.isPending ? "Starting..." : "Execute"}
     </Button>
   );
 }

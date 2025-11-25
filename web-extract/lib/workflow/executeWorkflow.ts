@@ -22,7 +22,12 @@ export async function executeWorkflow(executionId: string, nextRunAt?: Date) {
     where: {
       id: executionId,
     },
-    include: { workflow: true, phases: true },
+    include: {
+      workflow: true,
+      phases: {
+        orderBy: { number: "asc" },
+      },
+    },
   });
 
   if (!execution) {
@@ -64,7 +69,7 @@ export async function executeWorkflow(executionId: string, nextRunAt?: Date) {
   );
   await cleanupEnviornment(enviornment);
 
-  revalidatePath(`/worflow/runs`);
+  revalidatePath(`/workflow/runs`);
 }
 
 async function initializeWorkflowExecution(
@@ -273,12 +278,24 @@ function setupEnviornmentForPhase(
       );
     }
 
-    const outputValue =
-      enviornment.phases[connectedEdge!.source].outputs[
-        connectedEdge!.sourceHandle!
-      ];
+    const upstream = enviornment.phases[connectedEdge!.source];
+    if (!upstream || !upstream.outputs) {
+      console.error(
+        "Upstream outputs not ready for",
+        connectedEdge!.source,
+        "→",
+        connectedEdge!.sourceHandle,
+        "when resolving input",
+        input.name,
+        "for node",
+        node.id
+      );
+      enviornment.phases[node.id].inputs[input.name] = "";
+      continue;
+    }
 
-    enviornment.phases[node.id].inputs[input.name] = outputValue;
+    const outputValue = upstream.outputs[connectedEdge!.sourceHandle!];
+    enviornment.phases[node.id].inputs[input.name] = outputValue ?? "";
   }
 }
 

@@ -20,35 +20,37 @@ import {
   createWorkflowShemaType,
 } from "@/schema/workflows";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
 import { Layers2Icon, Loader2 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 function CreateWorkflowDialog({ triggeredText }: { triggeredText?: string }) {
   const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   const form = useForm<createWorkflowShemaType>({
     resolver: zodResolver(createWorkflowShema),
-    defaultValues: {},
-  });
-  const { mutate, isPending } = useMutation({
-    mutationFn: createWorkflow,
-    onSuccess: () => {
-      toast.success("Workflow created", { id: "create-workflow" });
-    },
-    onError: (error) => {
-      toast.error("Failed to create workflow", { id: "create-workflow" });
-    },
+    defaultValues: { name: "", description: "" },
   });
 
   const onSubmit = useCallback(
     (values: createWorkflowShemaType) => {
       toast.loading("Creating workflow...", { id: "create-workflow" });
-      mutate(values);
+      startTransition(async () => {
+        try {
+          const newWorkflowId = await createWorkflow(values);
+          toast.success("Workflow created", { id: "create-workflow" });
+          setOpen(false);
+          router.push(`/workflow/editor/${newWorkflowId}`);
+        } catch (error: any) {
+          toast.error(error?.message || "Failed to create workflow", { id: "create-workflow" });
+        }
+      });
     },
-    [mutate]
+    [router]
   );
 
   return (
@@ -83,7 +85,7 @@ function CreateWorkflowDialog({ triggeredText }: { triggeredText?: string }) {
                       Name <p className="text-xs text-primary">(required)</p>
                     </FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} value={field.value ?? ""} />
                     </FormControl>
                     <FormDescription>
                       Choose a descriptive and a unique name
@@ -104,7 +106,7 @@ function CreateWorkflowDialog({ triggeredText }: { triggeredText?: string }) {
                       </p>
                     </FormLabel>
                     <FormControl>
-                      <Textarea {...field} className="resize-none" />
+                      <Textarea {...field} value={field.value ?? ""} className="resize-none" />
                     </FormControl>
                     <FormDescription>
                       Provide a brief description of what your workflow does.

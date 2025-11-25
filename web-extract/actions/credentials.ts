@@ -52,7 +52,7 @@ export async function createCredential(form: createCredentialSchemaType) {
   if (!result) {
     throw new Error("Failed to create credential");
   }
-  revalidatePath("/credentials");
+  revalidatePath("/dashboard/credentials");
 }
 
 export async function deleteCredential(id: string) {
@@ -61,13 +61,13 @@ export async function deleteCredential(id: string) {
   if (!userId) {
     throw new Error("Unauthenticated");
   }
-
-  await prisma.credential.delete({
+  console.log(id);
+  await prisma.credential.deleteMany({
     where: {
       userId,
       id,
     },
   });
 
-  revalidatePath("/credentials");
+  revalidatePath("/dashboard/credentials");
 }

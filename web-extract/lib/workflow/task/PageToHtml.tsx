@@ -12,7 +12,13 @@ export const PageToHtmlTask = {
     {
       name: "Web page",
       type: TaskParamType.BROWSE_INSTANCE,
-      required: true,
+      required: false,
+    },
+    {
+      name: "All Pages Data",
+      type: TaskParamType.STRING,
+      helperText: "Multiple pages data from Launch Browser (will process all pages automatically)",
+      required: false,
     },
   ] as const,
   outputs: [
@@ -23,6 +29,14 @@ export const PageToHtmlTask = {
     {
       name: "Web page",
       type: TaskParamType.BROWSE_INSTANCE,
+    },
+    {
+      name: "All HTML Data",
+      type: TaskParamType.STRING,
+    },
+    {
+      name: "Pages Count",
+      type: TaskParamType.STRING,
     },
   ] as const,
   credits: 2,

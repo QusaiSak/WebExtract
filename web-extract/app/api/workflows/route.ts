@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { name, description, definition } = await request.json()
-
+    console.log('Received workflow data:', { name, description, definition })
     if (!name || !definition) {
       return NextResponse.json(
         { error: 'Name and definition are required' },

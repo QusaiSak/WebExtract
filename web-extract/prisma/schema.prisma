@@ -1,16 +1,16 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
+// prisma/schema.prisma
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url  	    = env("DATABASE_URL")
+  // uncomment next line if you use Prisma <5.10
+  // directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 model Workflow {
@@ -18,11 +18,11 @@ model Workflow {
   userId        String
   name          String
   description   String?
-  definition    String
+  definition    String    
   executionPlan String?
   creditsCost   Int       @default(0)
-  cron          String?  //cron expression
-  status        String //DRAFT | PUBLISHED
+  cron          String?   // cron expression
+  status        String    // DRAFT | PUBLISHED
   lastRunAt     DateTime?
   lastRunId     String?
   lastRunStatus String?
@@ -36,17 +36,16 @@ model Workflow {
 }
 
 model WorkflowExecution {
-  id          String    @id @default(cuid())
-  workflowId  String
-  userId      String
-  trigger     String
-  status      String
-  createdAt   DateTime  @default(now())
-  startedAt   DateTime?
-  completedAt DateTime?
-  definition  String
-
-  creditsConsumed Int @default(0)
+  id              String    @id @default(cuid())
+  workflowId      String
+  userId          String
+  trigger         String
+  status          String
+  createdAt       DateTime  @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+  definition      String    
+  creditsConsumed Int       @default(0)
 
   phases   ExecutionPhase[]
   workflow Workflow         @relation(fields: [workflowId], references: [id], onDelete: Cascade)
@@ -62,7 +61,7 @@ model ExecutionPhase {
   startedAt       DateTime?
   completedAt     DateTime?
   inputs          String?
-  outputs         String?
+  outputs          String?
   creditsConsumed Int?
 
   workflowExecutionId String
@@ -72,13 +71,15 @@ model ExecutionPhase {
 }
 
 model ExecutionLog {
-  id               String   @id @default(cuid())
-  logLevel         String
-  message          String
-  timestamp        DateTime @default(now())
-  executionPhaseId String
+  id                String          @id @default(cuid())
+  executionPhaseId  String
+  executionPhase    ExecutionPhase  @relation(fields: [executionPhaseId], references: [id], onDelete: Cascade)
+  message           String          @db.Text
+  logLevel          String          @default("info")
+  timestamp         DateTime        @default(now())
 
-  executionPhase ExecutionPhase @relation(fields: [executionPhaseId], references: [id], onDelete: Cascade)
+  @@index([executionPhaseId])
+  @@index([timestamp])
 }
 
 model UserBalance {
@@ -90,7 +91,7 @@ model Credential {
   id        String   @id @default(cuid())
   userId    String
   name      String
-  value     String
+  value     String   
   createdAt DateTime @default(now())
 
   @@unique([userId, name])
@@ -110,7 +111,7 @@ model AiConversation {
   id        String   @id @default(cuid())
   userId    String
   title     String
-  messages  Json     // Array of {role, content, timestamp}
+  messages  Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

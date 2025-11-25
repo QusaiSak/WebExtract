@@ -27,11 +27,6 @@ const routes = [
     icon: Layers2Icon,
   },
   {
-    href: "dashboard/chatAi",
-    label: "Chat AI",
-    icon: CirclePlayIcon,
-  },
-  {
     href: "dashboard/credentials",
     label: "Credentials",
     icon: ShieldCheckIcon,

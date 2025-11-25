@@ -41,24 +41,22 @@ function NodeHeader({
             <Coins size={16} />
             {task.credits}
           </Badge>
-          {!task.isEntryPoint && (
-            <Fragment>
-              <Button
-                variant={"ghost"}
-                size={"icon"}
-                onClick={() =>
-                  deleteElements({
-                    nodes: [{ id: nodeId }],
-                  })
-                }
-              >
-                <TrashIcon size={12} />
-              </Button>
-              <Button variant={"ghost"} size={"icon"} onClick={copyNode}>
-                <CopyIcon size={12} />
-              </Button>
-            </Fragment>
-          )}
+          <Fragment>
+            <Button
+              variant={"ghost"}
+              size={"icon"}
+              onClick={() =>
+                deleteElements({
+                  nodes: [{ id: nodeId }],
+                })
+              }
+            >
+              <TrashIcon size={12} />
+            </Button>
+            <Button variant={"ghost"} size={"icon"} onClick={copyNode}>
+              <CopyIcon size={12} />
+            </Button>
+          </Fragment>
           <Button
             variant={"ghost"}
             size={"icon"}

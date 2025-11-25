@@ -27,6 +27,7 @@ interface Props {
 function DeleteCredentialDialog({ crendentialName, credentialId }: Props) {
   const [confirmText, setConfirmText] = useState("");
   const [open, setOpen] = useState(false);
+  console.log(crendentialName);
 
   const deleteMutation = useMutation({
     mutationFn: deleteCredential,
@@ -73,6 +74,7 @@ function DeleteCredentialDialog({ crendentialName, credentialId }: Props) {
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             onClick={() => {
               toast.loading("Deleting credential...", { id: credentialId });
+              console.log(credentialId);
               deleteMutation.mutate(credentialId);
             }}
           >

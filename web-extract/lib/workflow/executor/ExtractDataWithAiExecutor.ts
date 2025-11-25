@@ -52,7 +52,7 @@ export async function ExtractDataWithAiExecutor(
     });
 
     const response = await openAi.chat.completions.create({
-      model: "openai/gpt-oss-20b:free",
+      model: "x-ai/grok-4.1-fast:free",
       messages: [
         {
           role: "system",
@@ -70,7 +70,7 @@ export async function ExtractDataWithAiExecutor(
       ],
       temperature: 1,
     });
-
+    console.log(response);
     enviornment.log.info(
       `Prompt tokens used: ${JSON.stringify(response.usage?.prompt_tokens)}`
     );

@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { CoinsIcon, HomeIcon, Layers2Icon, ShieldCheckIcon } from 'lucide-react';
+import { CoinsIcon, HomeIcon, Layers2Icon, ShieldCheckIcon, Sparkles } from 'lucide-react';
 
 type SidebarRoute = {
   _id: number;
@@ -23,12 +23,18 @@ const SIDEBAR_ROUTES: SidebarRoute[] = [
   },
   {
     _id: 3,
+    href: '/chatAi',
+    label: 'AI Assistant',
+    icon: Sparkles
+  },
+  {
+    _id: 4,
     href: '/credentials',
     label: 'Credentials',
     icon: ShieldCheckIcon
   },
   {
-    _id: 4,
+    _id: 5,
     href: '/billing',
     label: 'Billing',
     icon: CoinsIcon

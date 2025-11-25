@@ -12,12 +12,15 @@ function SaveButton({ workflowId }: { workflowId: string }) {
   const { toObject } = useReactFlow();
 
   const saveMutation = useMutation({
-    mutationFn: updateWorkFlow,
+    mutationFn: async ({ id, definition }: { id: string; definition: string }) =>
+      updateWorkFlow(id, definition),
     onSuccess: () => {
       toast.success("Flow saved successfully", { id: "save-workflow" });
     },
-    onError: () => {
-      toast.error("Somwthing went wrong", { id: "save-workflow" });
+    onError: (error: any) => {
+      console.error("Save error:", error);
+      const errorMessage = error?.message || "Something went wrong";
+      toast.error(errorMessage, { id: "save-workflow" });
     },
   });
 
@@ -26,11 +29,13 @@ function SaveButton({ workflowId }: { workflowId: string }) {
       variant={"outline"}
       className="flex items-center gap-2"
       onClick={() => {
-        const workflowDef = JSON.stringify(toObject());
+        const workflowDef = toObject();
+        // Convert to plain JSON to avoid class instance serialization issues
+        const plainWorkflowDef = JSON.parse(JSON.stringify(workflowDef));
         toast.loading("Saving Workflow", { id: "save-workflow" });
         saveMutation.mutate({
           id: workflowId,
-          definition: workflowDef,
+          definition: JSON.stringify(plainWorkflowDef),
         });
       }}
       disabled={saveMutation.isPending}
