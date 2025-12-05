@@ -2,6 +2,133 @@ import { TaskType, AppNode, TaskParam } from '@/lib/types'
 import { Edge } from '@xyflow/react'
 import { TaskRegistry } from '@/lib/workflow/task/Registry'
 
+// Normalize smart quotes and other unicode quotes to standard double quotes
+function normalizeQuotes(input: string): string {
+  return input
+    .replace(/[“”„‟«»]/g, '"')
+    .replace(/[‘’‚‛‹›]/g, '"')
+}
+
+function stripComments(input: string): string {
+  return input
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|\s)\/\/.*$/gm, '')
+}
+
+function extractBalancedJson(input: string): string {
+  let start = -1
+  let end = -1
+  let stack: string[] = []
+  let inString = false
+  let escaped = false
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i]
+    if (inString) {
+      if (escaped) {
+        escaped = false
+      } else if (ch === '\\') {
+        escaped = true
+      } else if (ch === '"') {
+        inString = false
+      }
+      continue
+    }
+    if (ch === '"') { inString = true; continue }
+    if (ch === '{' || ch === '[') {
+      if (start === -1) start = i
+      stack.push(ch)
+      continue
+    }
+    if (ch === '}' || ch === ']') {
+      if (stack.length === 0) continue
+      const top = stack[stack.length - 1]
+      if ((ch === '}' && top === '{') || (ch === ']' && top === '[')) {
+        stack.pop()
+        if (stack.length === 0) { end = i; break }
+      }
+    }
+  }
+  let out = (start !== -1) ? input.slice(start, end !== -1 ? end + 1 : input.length) : input.trim()
+  // Auto-close if unfinished
+  if (inString) out += '"'
+  while (stack.length) {
+    const closer = stack.pop() === '{' ? '}' : ']'
+    out += closer
+  }
+  return out
+}
+
+// Remove UI-only fields that commonly break parsing
+function stripMeasured(input: string): string {
+  return input.replace(/\"measured\"\s*:\s*\{[^}]*\}\s*,?/g, '')
+}
+
+// Balance an array starting at the given '[' index
+function extractBalancedArrayFrom(input: string, startIndex: number): string {
+  let i = startIndex
+  let stack: string[] = []
+  let inString = false
+  let escaped = false
+  let out = ''
+  for (; i < input.length; i++) {
+    const ch = input[i]
+    out += ch
+    if (inString) {
+      if (escaped) {
+        escaped = false
+      } else if (ch === '\\') {
+        escaped = true
+      } else if (ch === '"') {
+        inString = false
+      }
+      continue
+    }
+    if (ch === '"') { inString = true; continue }
+    if (ch === '[' || ch === '{') stack.push(ch)
+    else if (ch === ']' || ch === '}') {
+      const top = stack[stack.length - 1]
+      if ((ch === ']' && top === '[') || (ch === '}' && top === '{')) {
+        stack.pop()
+        if (stack.length === 0 && ch === ']') {
+          break
+        }
+      }
+    }
+  }
+  // If not closed, close it
+  if (stack.length > 0) {
+    // close any open string
+    if (inString) out += '"'
+    while (stack.length) {
+      const closer = stack.pop() === '[' ? ']' : '}'
+      out += closer
+    }
+  }
+  return out
+}
+
+// Try to reconstruct minimal valid workflow JSON from broken blocks
+function reconstructWorkflowJson(input: string): string | null {
+  const cleaned = stripMeasured(normalizeQuotes(stripComments(input)))
+  const nodesIdx = cleaned.search(/\"nodes\"\s*:\s*\[/)
+  if (nodesIdx === -1) return null
+  const startBracket = cleaned.indexOf('[', nodesIdx)
+  if (startBracket === -1) return null
+  const nodesArr = extractBalancedArrayFrom(cleaned, startBracket)
+  // edges optional
+  const edgesIdx = cleaned.search(/\"edges\"\s*:\s*\[/)
+  let edgesArr = '[]'
+  if (edgesIdx !== -1) {
+    const eStart = cleaned.indexOf('[', edgesIdx)
+    if (eStart !== -1) edgesArr = extractBalancedArrayFrom(cleaned, eStart)
+  }
+  // Remove trailing commas inside arrays
+  const tidyNodes = nodesArr.replace(/,\s*([}\]])/g, '$1')
+  const tidyEdges = edgesArr.replace(/,\s*([}\]])/g, '$1')
+  const candidate = `{"workflow":{"nodes":${tidyNodes},"edges":${tidyEdges}}}`
+  return candidate
+}
+
 export interface WorkflowResponse {
   workflow?: {
     nodes: AppNode[]
@@ -22,165 +149,298 @@ export function generateNodeId(): string {
 }
 
 // Parse AI response to extract workflow JSON (streaming-safe)
+// Create a basic fallback workflow when JSON parsing fails
+function createFallbackWorkflow(siteUrl: string, webhookUrl?: string) {
+  const timestamp = Date.now()
+  
+  const nodes = [
+    {
+      id: `node-${timestamp}-1`,
+      data: {
+        type: TaskType.LAUNCH_BROWSER,
+        inputs: {
+          "Website Url": siteUrl || "https://example.com"
+        }
+      },
+      position: { x: 0, y: 0 },
+      type: "FlowScrapeNode",
+      dragHandle: ".drag-handle"
+    },
+    {
+      id: `node-${timestamp}-2`,
+      data: {
+        type: TaskType.PAGE_TO_HTML,
+        inputs: {
+          "Web page": ""
+        }
+      },
+      position: { x: 400, y: 0 },
+      type: "FlowScrapeNode",
+      dragHandle: ".drag-handle"
+    },
+    {
+      id: `node-${timestamp}-3`,
+      data: {
+        type: TaskType.EXTRACT_TEXT_FROM_ELEMENT,
+        inputs: {
+          "HTML": "",
+          "Selector": ".product, .item, h1, .title"
+        }
+      },
+      position: { x: 800, y: 0 },
+      type: "FlowScrapeNode",
+      dragHandle: ".drag-handle"
+    }
+  ]
+
+  const edges = [
+    {
+      id: `edge-${timestamp}-1`,
+      source: `node-${timestamp}-1`,
+      target: `node-${timestamp}-2`,
+      animated: true
+    },
+    {
+      id: `edge-${timestamp}-2`,
+      source: `node-${timestamp}-2`,
+      target: `node-${timestamp}-3`,
+      animated: true
+    }
+  ]
+
+  // Add webhook node if URL provided
+  if (webhookUrl) {
+    const webhookNode = {
+      id: `node-${timestamp}-4`,
+      data: {
+        type: TaskType.DELIVER_VIA_WEBHOOK,
+        inputs: {
+          "Target URL": webhookUrl,
+          "Body": ""
+        }
+      },
+      position: { x: 1200, y: 0 },
+      type: "FlowScrapeNode",
+      dragHandle: ".drag-handle"
+    }
+    
+    nodes.push(webhookNode as any) // Cast to avoid type issues
+    edges.push({
+      id: `edge-${timestamp}-3`,
+      source: `node-${timestamp}-3`,
+      target: `node-${timestamp}-4`,
+      animated: true
+    })
+  }
+
+  return { nodes: nodes as any, edges } // Cast to avoid type issues
+}
+
 export function parseAIWorkflow(aiResponse: string, isStreaming: boolean = false): WorkflowResponse {
   try {
+    console.log('Parsing AI response:', { 
+      length: aiResponse.length, 
+      isStreaming, 
+      preview: aiResponse.substring(0, 200) 
+    })
+
     // For streaming, be more cautious about parsing incomplete JSON
     if (isStreaming) {
-      // Don't try to parse if the response seems incomplete
+      // Basic brace counting
       const openBraces = (aiResponse.match(/\{/g) || []).length
       const closeBraces = (aiResponse.match(/\}/g) || []).length
       
-      // If there are unmatched braces, likely incomplete
-      if (openBraces > closeBraces) {
-        return { error: 'JSON streaming in progress' }
+      // Also check for incomplete strings
+      const quotes = (aiResponse.match(/"/g) || []).length
+      const hasUnmatchedQuotes = quotes % 2 !== 0
+      
+      // Check if the response looks truncated
+      const endsWithComma = aiResponse.trim().endsWith(',')
+      const endsWithIncompleteValue = aiResponse.trim().match(/:\s*"[^"]*$/)
+      
+      if (openBraces > closeBraces || hasUnmatchedQuotes || endsWithComma || endsWithIncompleteValue) {
+        console.log('JSON appears incomplete during streaming:', {
+          openBraces,
+          closeBraces,
+          hasUnmatchedQuotes,
+          endsWithComma,
+          endsWithIncompleteValue: !!endsWithIncompleteValue
+        })
+        return { workflow: undefined, error: 'JSON streaming in progress' }
       }
     }
 
-    // Try to extract JSON from response
-    // Look for both direct JSON and workflow-wrapped JSON
-    let jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
-    
-    if (!jsonMatch) {
-      return { error: 'No JSON found in AI response' }
-    }
+    // Enhanced JSON extraction with multiple patterns and better error handling
+    let jsonStr = ''
+    let cleanResponse = aiResponse.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
 
-    const parsed = JSON.parse(jsonMatch[0])
-    
-    // Handle direct workflow format (nodes and edges at root level)
-    if (parsed.nodes && parsed.edges) {
-      // ALWAYS generate new UUIDs - ignore any IDs from AI to ensure proper format
-      const processedNodes = parsed.nodes.map((node: any) => {
-        const newId = generateNodeId(); // Always generate fresh UUID
-        return {
-          ...node,
-          id: newId, // Force new UUID, don't use node.id
-          type: 'FlowScrapeNode',
-          dragHandle: '.drag-handle',
-          data: {
-            ...node.data,
-            inputs: node.data.inputs || {}
-          }
-        };
-      });
+    const fencedJsonMatch = cleanResponse.match(/```json\s*([\s\S]*?)```/i)
+    const fencedGenericMatch = (!fencedJsonMatch ? cleanResponse.match(/```\s*([\s\S]*?)```/) : null)
+    if (fencedJsonMatch || fencedGenericMatch) {
+      const block = (fencedJsonMatch ? fencedJsonMatch[1] : (fencedGenericMatch as RegExpMatchArray)[1]).trim()
+      let candidate = normalizeQuotes(stripComments(block))
+      candidate = stripMeasured(candidate)
+      candidate = candidate.replace(/,\s*([}\]])/g, '$1')
+      jsonStr = extractBalancedJson(candidate)
+      console.log('Found JSON in fenced block:', jsonStr.substring(0, 200))
+    } else {
+         // Pattern 3: Look for workflow object specifically - more restrictive
+         const workflowMatch = cleanResponse.match(/(\{[\s\S]*?"workflow"\s*:\s*\{[\s\S]*?\}[\s\S]*?\})/m)
+         if (workflowMatch) {
+           jsonStr = workflowMatch[1]
+           console.log('Found workflow pattern:', jsonStr.substring(0, 200))
+         } else {
+           // Pattern 4: Find largest JSON object that looks valid
+           const allJsonMatches = cleanResponse.match(/\{(?:[^{}]|{[^{}]*})*\}/g) || []
+           
+           // Filter to find the most likely workflow JSON
+           const workflowCandidates = allJsonMatches.filter(json => {
+             return json.includes('"nodes"') || json.includes('"workflow"') || json.length > 500
+           })
+           
+           if (workflowCandidates.length > 0) {
+             // Use the longest candidate
+             jsonStr = workflowCandidates.reduce((longest, current) => 
+               current.length > longest.length ? current : longest
+             )
+             console.log('Found workflow candidate JSON:', jsonStr.substring(0, 200))
+           } else {
+             console.log('No JSON pattern found in response')
+             return { 
+               workflow: { nodes: [], edges: [] }, 
+               explanation: 'No workflow data found in response'
+             }
+           }
+         }
+     }
+ 
+    // Clean up common JSON formatting issues
+    jsonStr = stripMeasured(normalizeQuotes(stripComments(jsonStr)))
+      .replace(/,\s*([}\]])/g, '$1')
+      .replace(/\n\s*\n/g, '\n')
+      .trim()
 
-      // Create ID mapping for edges (old AI IDs -> new UUIDs)
-      const idMapping = new Map<string, string>();
-      parsed.nodes.forEach((node: any, index: number) => {
-        if (node.id) {
-          idMapping.set(node.id, processedNodes[index].id);
+    // Ensure even number of quotes
+    const quoteCount = (jsonStr.match(/"/g) || []).length
+    if (quoteCount % 2 !== 0) jsonStr += '"'
+
+    // Balance braces/brackets if needed
+    jsonStr = extractBalancedJson(jsonStr)
+
+    let parsed
+    try {
+      parsed = JSON.parse(jsonStr)
+      console.log('Successfully parsed JSON:', { hasWorkflow: !!parsed.workflow, hasNodes: !!parsed.nodes })
+    } catch (parseError) {
+      console.error('JSON parse failed:', parseError, 'JSON:', jsonStr.substring(0, 500))
+
+      // Try to fix common JSON issues and parse again
+      let fixedJson = jsonStr
+      fixedJson = fixedJson.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":')
+      fixedJson = fixedJson.replace(/'/g, '"')
+      fixedJson = fixedJson.replace(/,\s*([}\]])/g, '$1')
+      fixedJson = extractBalancedJson(fixedJson)
+
+      try {
+        parsed = JSON.parse(fixedJson)
+        console.log('Successfully parsed fixed JSON')
+      } catch (secondError) {
+        console.error('Fixed JSON also failed:', secondError)
+
+        // Attempt reconstruction from arrays
+        const reconstructed = reconstructWorkflowJson(cleanResponse)
+        if (reconstructed) {
+          try {
+            parsed = JSON.parse(reconstructed)
+            console.log('Reconstructed workflow JSON successfully')
+          } catch {}
         }
-      });
 
-      // Process edges with new IDs
-      const processedEdges = parsed.edges?.map((edge: any) => {
-        const newSourceId = idMapping.get(edge.source) || edge.source;
-        const newTargetId = idMapping.get(edge.target) || edge.target;
-        
-        return {
-          ...edge,
-          id: `xy-edge__${newSourceId}${edge.sourceHandle || ''}-${newTargetId}${edge.targetHandle || ''}`,
-          source: newSourceId,
-          target: newTargetId,
-          animated: true
-        };
-      }) || [];
+        if (!parsed) {
+          // Last resort: URL extraction fallback
+          const urls = aiResponse.match(/https?:\/\/[^\s<>"{}|\\^`\[\]]+/g) || []
+          const webhookUrls = urls.filter(url => url.includes('httpbin') || url.includes('webhook'))
+          const siteUrls = urls.filter(url => !url.includes('httpbin') && !url.includes('webhook'))
 
-      // If edges are missing proper handles, generate them automatically
-      const edgesNeedHandles = processedEdges.some((edge: any) => 
-        !edge.sourceHandle || !edge.targetHandle
-      )
-      
-      console.log('Processing direct format - edges:', processedEdges.length, 'edgesNeedHandles:', edgesNeedHandles)
-      
-      let finalEdges = processedEdges
-      if (edgesNeedHandles || processedEdges.length === 0) {
-        console.log('Generating auto edges because:', { edgesNeedHandles, noEdges: processedEdges.length === 0 })
-        // Use auto-generated edges with proper handles
-        finalEdges = generateAutoEdges(processedNodes)
-      }
+          if (siteUrls.length > 0) {
+            console.log('Creating fallback workflow with extracted URLs:', { siteUrls, webhookUrls })
+            const fallbackWorkflow = createFallbackWorkflow(siteUrls[0], webhookUrls[0])
+            return {
+              workflow: fallbackWorkflow,
+              explanation: 'Created fallback workflow from extracted URLs',
+              error: 'JSON parsing failed but recovered with URL extraction'
+            }
+          }
 
-      console.log('Final edges (direct format):', finalEdges)
-
-      return {
-        workflow: {
-          nodes: processedNodes,
-          edges: finalEdges
-        },
-        explanation: parsed.explanation || 'Workflow generated successfully'
+          return {
+            workflow: { nodes: [], edges: [] },
+            explanation: 'Invalid JSON format in response',
+            error: 'Failed to parse workflow JSON: ' + (parseError as Error).message
+          }
+        }
       }
     }
     
-    // Handle wrapped workflow format (workflow object containing nodes and edges)
-    if (parsed.workflow && parsed.workflow.nodes && parsed.workflow.edges) {
-      // ALWAYS generate new UUIDs - ignore any IDs from AI to ensure proper format
-      const processedNodes = parsed.workflow.nodes.map((node: any) => {
-        const newId = generateNodeId(); // Always generate fresh UUID
-        return {
-          ...node,
-          id: newId, // Force new UUID, don't use node.id
-          type: 'FlowScrapeNode',
-          dragHandle: '.drag-handle',
-          data: {
-            ...node.data,
-            inputs: node.data.inputs || {}
-          }
-        };
-      });
-
-      // Create ID mapping for edges (old AI IDs -> new UUIDs)
-      const idMapping = new Map<string, string>();
-      parsed.workflow.nodes.forEach((node: any, index: number) => {
-        if (node.id) {
-          idMapping.set(node.id, processedNodes[index].id);
-        }
-      });
-
-      // Process edges with new IDs
-      const processedEdges = parsed.workflow.edges?.map((edge: any) => {
-        const newSourceId = idMapping.get(edge.source) || edge.source;
-        const newTargetId = idMapping.get(edge.target) || edge.target;
-        
-        return {
-          ...edge,
-          id: `xy-edge__${newSourceId}${edge.sourceHandle || ''}-${newTargetId}${edge.targetHandle || ''}`,
-          source: newSourceId,
-          target: newTargetId,
-          animated: true
-        };
-      }) || [];
-
-      // If edges are missing proper handles, generate them automatically
-      const edgesNeedHandles = processedEdges.some((edge: any) => 
-        !edge.sourceHandle || !edge.targetHandle
-      )
-      
-      console.log('Processing wrapped format - edges:', processedEdges.length, 'edgesNeedHandles:', edgesNeedHandles)
-      
-      let finalEdges = processedEdges
-      if (edgesNeedHandles || processedEdges.length === 0) {
-        console.log('Generating auto edges because:', { edgesNeedHandles, noEdges: processedEdges.length === 0 })
-        // Use auto-generated edges with proper handles
-        finalEdges = generateAutoEdges(processedNodes)
-      }
-
-      console.log('Final edges (wrapped format):', finalEdges)
-
-      return {
-        workflow: {
-          nodes: processedNodes,
-          edges: finalEdges
-        },
-        explanation: parsed.explanation || 'Workflow generated successfully'
+    // Handle both direct and nested workflow formats
+    let workflowData = parsed.nodes ? parsed : parsed.workflow
+    if (!workflowData?.nodes) {
+      console.log('No nodes found in parsed data:', parsed)
+      return { 
+        workflow: { nodes: [], edges: [] }, 
+        explanation: 'No valid workflow structure found'
       }
     }
 
-    return { error: 'Invalid workflow structure in response' }
-  } catch (error) {
-    console.error('Error parsing AI response:', error)
-    return { error: 'Failed to parse AI response' }
-  }
-}
+    console.log('Processing workflow with nodes:', workflowData.nodes.length)
 
+    const processedNodes = workflowData.nodes.map((node: any) => ({
+       ...node,
+       id: node.id || generateNodeId(),
+       type: 'FlowScrapeNode',
+       dragHandle: '.drag-handle',
+       data: {
+         ...node.data,
+         inputs: node.data.inputs || {}
+       }
+     }))
+
+     let processedEdges = workflowData.edges?.map((edge: any) => ({
+       ...edge,
+       id: edge.id || `edge-${edge.source}-${edge.target}`,
+       animated: true
+     })) || []
+
+     // Generate auto edges if needed
+     const edgesNeedHandles = processedEdges.some((edge: any) => 
+       !edge.sourceHandle || !edge.targetHandle
+     )
+     
+     if (edgesNeedHandles || processedEdges.length === 0) {
+       processedEdges = generateAutoEdges(processedNodes)
+     }
+
+     const workflow = {
+       nodes: processedNodes,
+       edges: processedEdges
+     }
+
+     const validation = validateWorkflow(workflow)
+     
+     return { 
+       workflow, 
+       explanation: parsed.explanation || 'Workflow generated successfully',
+       error: validation.isValid ? undefined : `Validation warnings: ${validation.errors.join(', ')}`
+     }
+
+   } catch (error) {
+     console.error('Error parsing AI workflow response:', error)
+     return { 
+       workflow: { nodes: [], edges: [] }, 
+       explanation: 'Failed to parse workflow from AI response',
+       error: error instanceof Error ? error.message : 'Unknown parsing error'
+     }
+   }
+ }
 // Validate workflow structure
 export function validateWorkflow(workflow: { nodes: AppNode[], edges: Edge[] }): ValidationResult {
   const errors: string[] = []
@@ -192,12 +452,11 @@ export function validateWorkflow(workflow: { nodes: AppNode[], edges: Edge[] }):
 
   // Check if there's an entry point
   const hasEntryPoint = workflow.nodes.some(node => {
-    const task = TaskRegistry[node.data.type]
-    return task && task.isEntryPoint
+    return node.data.type === TaskType.LAUNCH_BROWSER
   })
 
   if (!hasEntryPoint) {
-    errors.push('Workflow must have an entry point task (e.g., AI Research Assistant or Launch Browser)')
+    errors.push('Workflow must start with LAUNCH_BROWSER task')
   }
 
   // Validate each node
@@ -256,10 +515,7 @@ export function optimizeWorkflowLayout(nodes: AppNode[], edges: Edge[]): { nodes
   const visited = new Set<string>()
 
   // Find entry point
-  const entryNode = nodes.find(node => {
-    const task = TaskRegistry[node.data.type]
-    return task && task.isEntryPoint
-  })
+  const entryNode = nodes.find(node => node.data.type === TaskType.LAUNCH_BROWSER)
   if (!entryNode) {
     // If no entry point, just return nodes with basic positioning
     return {

@@ -61,11 +61,11 @@ ${AVAILABLE_TASK_TYPES.map(type => `- ${type}`).join('\n')}
 - AI_RESEARCH_ASSISTANT: Research → Inputs: "Research Query", "Number of Links", "Credentials" | Outputs: "Research Links"
 - TRANSLATE_TEXT: Translate → Inputs: "Text Content", "Target Language", "Credentials" | Outputs: "Translated Text"
 - DETECT_LANGUAGE: Detect → Inputs: "Text Content" | Outputs: "Detected Language"
-- GENERATE_DOCUMENT: Generate doc → Inputs: "Content Data", "Document Type", "Export Format", "Credentials" | Outputs: "Generated Document"
+- GENERATE_DOCUMENT: Generate doc → Inputs: "Content Data", "Document Type", "Credentials" | Outputs: "Generated Document"
 
 **Export:**
 - EXPORT_TO_CSV: CSV export → Inputs: "Data", "Include Metadata" | Outputs: "CSV File URL"
-- EXPORT_TO_POWERBI: Power BI → Inputs: "Data", "Chart Type" | Outputs: "Power BI CSV"
+- EXPORT_TO_POWERBI: Visualize & Export → Inputs: "Data", "Chart Type" | Outputs: "Power BI CSV", "Visualization Config", "HTML Report", "Visualization Image"
 - DELIVER_VIA_WEBHOOK: Send webhook → Inputs: "Body", "Target url" | No outputs
 
 ## Workflow Structure:
@@ -106,11 +106,19 @@ ${AVAILABLE_TASK_TYPES.map(type => `- ${type}`).join('\n')}
 3. ALL nodes MUST be connected via edges
 4. Edge IDs format: "xy-edge__[sourceId][sourceHandle]-[targetId][targetHandle]"
 5. Use exact input/output names from task specifications
-6. For EXTRACT_DATA_WITH_AI: ALWAYS include detailed "Prompt" with extraction instructions
+6. For EXTRACT_DATA_WITH_AI: ALWAYS include a detailed "Prompt" that produces a valid JSON array suitable for visualization. Match the schema to the chosen chart type:
+   - Bar/Column: [{"category": string, "value": number}]
+   - Line/Trend: [{"date": string, "value": number}]
+   - Pie/Doughnut: [{"label": string, "value": number}]
+   - Scatter: [{"x_value": number, "y_value": number}]
+   Ensure numbers are actual numeric values, not strings.
 7. Set "Credentials" to "default" for AI tasks
 8. Entry points: LAUNCH_BROWSER (web scraping) or AI_RESEARCH_ASSISTANT (research)
+9. If using EXPORT_TO_POWERBI, connect EXTRACT_DATA_WITH_AI → EXPORT_TO_POWERBI with "Extracted Data" → "Data" and set "Chart Type" consistent with the output schema.
+10. If using AI_RESEARCH_ASSISTANT, connect "Research Links" → LAUNCH_BROWSER and set "Process All Links" to "true" to handle multiple links.
 9. Standard dimensions: width=420, height varies by task
 10. NEVER include explanatory text outside the JSON structure
+11. If using AI_RESEARCH_ASSISTANT, the flow MUST be: AI_RESEARCH_ASSISTANT → LAUNCH_BROWSER → PAGE_TO_HTML → EXTRACT_DATA_WITH_AI → (GENERATE_DOCUMENT | EXPORT_TO_POWERBI | EXPORT_TO_PDF)
 
 ## Common Patterns:
 - **Web Scraping**: LAUNCH_BROWSER → PAGE_TO_HTML → EXTRACT_DATA_WITH_AI → DELIVER_VIA_WEBHOOK

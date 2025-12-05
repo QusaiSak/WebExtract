@@ -22,7 +22,6 @@ import DeletableEdge from "./edges/DeletableEdge";
 import { TaskRegistry } from "@/lib/workflow/task/Registry";
 import { parseAIWorkflow } from "@/lib/workflow-ai";
 import { Button } from "@/components/ui/button";
-import { updateWorkFlow } from "@/actions/workflows";
 
 const nodeTypes = {
   FlowScrapeNode: NodeComponent,
@@ -31,7 +30,8 @@ const edgeTypes = {
   default: DeletableEdge,
 };
 
-const snapGrid: [number, number] = [50, 50];
+const snapgird: [number, number] = [50, 50];
+
 const fitViewOptions = { padding: 1 };
 
 function FlowEditor({ workflow }: { workflow: Workflow }) {
@@ -62,41 +62,34 @@ function FlowEditor({ workflow }: { workflow: Workflow }) {
   }, [workflow, setEdges, setNodes, setViewport]);
 
   // Live updates via SSE channel per workflow id
-  // DISABLED: The /api/ws endpoint is for execution phase logs, not workflow updates
-  // Workflows still save/load properly without this real-time sync feature
-  const sseActive = false; // !!sseRef.current;
-  
-  // Commented out SSE connection - can be re-enabled when proper workflow SSE endpoint is created
-  /*
   useEffect(() => {
-    if (!workflow?.id) return;
+    if (!workflow?.id) return
     try { sseRef.current?.close() } catch {}
-    let url = '';
+    let url = ''
     if (typeof window !== 'undefined') {
-      const u = new URL('/api/ws', window.location.href);
-      u.searchParams.set('workflowId', workflow.id);
-      url = u.toString();
+      const u = new URL('/api/ws', window.location.href)
+      u.searchParams.set('workflowId', workflow.id)
+      url = u.toString()
     }
-    const es = new EventSource(url, { withCredentials: false });
-    sseRef.current = es;
+    const es = new EventSource(url, { withCredentials: false })
+    sseRef.current = es
     es.onmessage = (ev) => {
       try {
-        const msg = JSON.parse(ev.data);
+        const msg = JSON.parse(ev.data)
         if (msg?.type === 'workflow.updated' && msg?.payload) {
-          const { definition } = msg.payload;
-          const parsed = typeof definition === 'string' ? JSON.parse(definition) : definition;
+          const { definition } = msg.payload
+          const parsed = typeof definition === 'string' ? JSON.parse(definition) : definition
           if (parsed?.nodes && parsed?.edges) {
-            setNodes(parsed.nodes);
-            setEdges(parsed.edges);
+            setNodes(parsed.nodes)
+            setEdges(parsed.edges)
             try { fitView({ padding: 0.9 }) } catch {}
           }
         }
       } catch {}
-    };
-    es.onerror = () => { try { es.close() } catch {}; sseRef.current = null };
-    return () => { try { es.close() } catch {} };
-  }, [workflow?.id, setNodes, setEdges, fitView]);
-  */
+    }
+    es.onerror = () => { try { es.close() } catch {}; sseRef.current = null }
+    return () => { try { es.close() } catch {} }
+  }, [workflow?.id, setNodes, setEdges, fitView])
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -134,6 +127,7 @@ function FlowEditor({ workflow }: { workflow: Workflow }) {
         },
       });
     },
+
     [setEdges, updateNodeData, nodes]
   );
 
@@ -181,23 +175,31 @@ function FlowEditor({ workflow }: { workflow: Workflow }) {
       const detectedCycle = hasCycle(targetNode);
       return !detectedCycle;
     },
+
     [nodes, edges]
   );
 
   // Apply surgical modifications and preserve important inputs
-  const smartMerge = useCallback(
-    (incoming: { nodes: AppNode[]; edges: Edge[] }): { nodes: AppNode[]; edges: Edge[] } => {
-      if (!incoming?.nodes?.length) return { nodes, edges };
+  const applySurgicalModifications = useCallback(
+    (
+      existing: { nodes: AppNode[]; edges: Edge[] },
+      incoming: { nodes: AppNode[]; edges: Edge[] }
+    ): { nodes: AppNode[]; edges: Edge[] } => {
+      if (!incoming?.nodes?.length) return existing;
 
       // Preserve key inputs
-      const originalBrowser = nodes.find(
+      const originalBrowser = existing.nodes.find(
         (n) => n.data?.inputs && (n.data.inputs as any)["Website Url"]
       );
-      const originalWebhook = nodes.find(
+      const originalWebhook = existing.nodes.find(
         (n) => n.data?.type === TaskType.DELIVER_VIA_WEBHOOK
       );
-      const originalWebhookUrl = originalWebhook?.data?.inputs?.["Target URL"] as string | undefined;
-      const originalSiteUrl = originalBrowser?.data?.inputs?.["Website Url"] as string | undefined;
+      const originalWebhookUrl = originalWebhook?.data?.inputs?.["Target URL"] as
+        | string
+        | undefined;
+      const originalSiteUrl = originalBrowser?.data?.inputs?.["Website Url"] as
+        | string
+        | undefined;
 
       const used = new Set<string>();
       const place = (pos?: { x: number; y: number }, index?: number) => {
@@ -214,7 +216,7 @@ function FlowEditor({ workflow }: { workflow: Workflow }) {
       };
 
       // Seed existing positions to avoid stacking over them
-      nodes.forEach((n) => used.add(`${n.position?.x ?? 0},${n.position?.y ?? 0}`));
+      existing.nodes.forEach((n) => used.add(`${n.position?.x ?? 0},${n.position?.y ?? 0}`));
 
       const updatedNodes = incoming.nodes.map((n, idx) => {
         const isBrowser = !!n.data && n.data.type === TaskType.LAUNCH_BROWSER;
@@ -240,21 +242,12 @@ function FlowEditor({ workflow }: { workflow: Workflow }) {
         return { ...n, data, position } as AppNode;
       });
 
-      const nextEdges = (incoming.edges && incoming.edges.length > 0) ? incoming.edges : edges;
+      const nextEdges = (incoming.edges && incoming.edges.length > 0) ? incoming.edges : existing.edges;
 
       return { nodes: updatedNodes, edges: nextEdges };
     },
-    [nodes, edges]
+    []
   );
-
-  const cleanExplanation = useCallback((text: string) => {
-    if (!text) return '';
-    return text
-      .replace(/```[\s\S]*?```/g, '') // code fences
-      .replace(/\{[\s\S]*?\}/g, (m) => (m.length > 200 ? '' : m)) // large JSON blocks
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-  }, []);
 
   const sendAiPrompt = useCallback(async () => {
     if (!aiInput.trim() || aiLoading) return;
@@ -286,8 +279,15 @@ function FlowEditor({ workflow }: { workflow: Workflow }) {
       if (!reader) throw new Error("No response body");
 
       let accumulated = "";
-
-      // Process streaming response
+      // Strip JSON/code blocks from streaming text for a clean explanation-only panel
+      const cleanExplanation = useCallback((text: string) => {
+        if (!text) return ''
+        return text
+          .replace(/```[\s\S]*?```/g, '') // code fences
+          .replace(/\{[\s\S]*?\}/g, (m) => (m.length > 200 ? '' : m)) // large JSON blocks
+          .replace(/\n{3,}/g, '\n\n')
+          .trim()
+      }, [])
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -295,57 +295,54 @@ function FlowEditor({ workflow }: { workflow: Workflow }) {
         accumulated += chunk;
         setAiStreamingText(cleanExplanation(accumulated));
 
-        // Try parsing during streaming (but don't apply until complete)
         const streamingParsed = parseAIWorkflow(accumulated, true);
         if (streamingParsed.workflow) {
           streamingWorkflowRef.current = streamingParsed.workflow as any;
         }
       }
 
-      console.log('Complete AI response received:', {
-        totalLength: accumulated.length,
-        preview: accumulated.substring(0, 300) + '...'
-      });
-
-      // Parse the complete response
       const finalParsed = parseAIWorkflow(accumulated, false);
       let incoming = finalParsed.workflow as any;
-      
       if ((!incoming || !incoming.nodes?.length) && streamingWorkflowRef.current) {
-        console.log('Using streaming workflow as fallback');
         incoming = streamingWorkflowRef.current as any;
       }
+      if (incoming && incoming.nodes && incoming.nodes.length > 0) {
+        const merged = applySurgicalModifications(
+          { nodes: nodes as AppNode[], edges },
+          incoming
+        );
+        setNodes(merged.nodes as any);
+        setEdges(merged.edges as any);
+        // Ensure user sees the changes immediately
+        try { fitView({ padding: 0.8 }); } catch {}
+        setTimeout(() => { try { fitView({ padding: 0.8 }); } catch {} }, 50)
 
-      if (incoming?.nodes?.length > 0) {
-        console.log('Applying workflow with nodes:', incoming.nodes.length);
-        const processed = smartMerge(incoming);
-        setNodes(processed.nodes);
-        setEdges(processed.edges);
-        
-        // Save the updated workflow
+        // Persist the updated definition to this workflow id
         try {
-          await updateWorkFlow(workflow.id, JSON.stringify(processed));
-          
-          // Refresh the workflow from database
+          await fetch(`/api/workflows`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: workflow.id, definition: JSON.stringify({ nodes: merged.nodes, edges: merged.edges }) })
+          })
+          // Fallback: if no live socket, fetch latest definition
+          const sseActive = !!sseRef.current
           if (!sseActive) {
-            const wfRes = await fetch(`/api/workflows?id=${workflow.id}`, { cache: 'no-store' });
-            if (wfRes.ok) {
-              const wf = await wfRes.json();
-              try {
-                const parsed = JSON.parse(wf.definition);
-                if (parsed?.nodes && parsed?.edges) {
-                  setNodes(parsed.nodes);
-                  setEdges(parsed.edges);
-                  try { fitView({ padding: 0.9 }); } catch {}
-                }
-              } catch {}
-            }
-          }
+             const wfRes = await fetch(`/api/workflows?id=${workflow.id}`, { cache: 'no-store' })
+             if (wfRes.ok) {
+               const wf = await wfRes.json()
+               try {
+                 const parsed = JSON.parse(wf.definition)
+                 if (parsed?.nodes && parsed?.edges) {
+                   setNodes(parsed.nodes)
+                   setEdges(parsed.edges)
+                   try { fitView({ padding: 0.9 }) } catch {}
+                 }
+               } catch {}
+             }
+           }
         } catch (e) {
-          console.warn('Failed to persist AI changes to workflow:', e);
+          console.warn('Failed to persist AI changes to workflow:', e)
         }
-      } else {
-        console.warn('No valid workflow nodes found in AI response');
       }
     } catch (err) {
       console.error("AI prompt failed:", err);
@@ -353,7 +350,7 @@ function FlowEditor({ workflow }: { workflow: Workflow }) {
       setAiLoading(false);
       setAiStreamingText((s) => (s || "").trim());
     }
-  }, [aiInput, aiLoading, nodes, edges, smartMerge, setNodes, setEdges, workflow.id, cleanExplanation, sseActive, fitView]);
+  }, [aiInput, aiLoading, nodes, edges, applySurgicalModifications, setNodes, setEdges, workflow.id]);
 
   // Toggle panel via Cmd+/
   useEffect(() => {
@@ -430,7 +427,7 @@ function FlowEditor({ workflow }: { workflow: Workflow }) {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         snapToGrid
-        snapGrid={snapGrid}
+        snapGrid={snapgird}
         fitView
         fitViewOptions={fitViewOptions}
         onDragOver={onDragOver}

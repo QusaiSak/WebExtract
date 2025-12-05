@@ -30,44 +30,58 @@ export async function createCredential(form: createCredentialSchemaType) {
   const { success, data } = createCredentialSchema.safeParse(form);
 
   if (!success) {
-    throw new Error("Invalid form data");
+    return { success: false, error: "Invalid form data" };
   }
 
   const { userId } = await auth();
 
   if (!userId) {
-    throw new Error("Unauthenticated");
+    return { success: false, error: "Unauthenticated" };
   }
 
-  const encryptedValue = symmetricEncrypt(data.value);
+  try {
+    const encryptedValue = symmetricEncrypt(data.value);
 
-  const result = await prisma.credential.create({
-    data: {
-      userId,
-      name: data.name,
-      value: encryptedValue,
-    },
-  });
+    const result = await prisma.credential.create({
+      data: {
+        userId,
+        name: data.name,
+        value: encryptedValue,
+      },
+    });
 
-  if (!result) {
-    throw new Error("Failed to create credential");
+    if (!result) {
+      return { success: false, error: "Failed to create credential" };
+    }
+    revalidatePath("/dashboard/credentials");
+    return { success: true };
+  } catch (error: any) {
+    if (error.code === "P2002") {
+      return { success: false, error: "Credential with this name already exists" };
+    }
+    return { success: false, error: error.message || "Failed to create credential" };
   }
-  revalidatePath("/dashboard/credentials");
 }
 
 export async function deleteCredential(id: string) {
   const { userId } = await auth();
 
   if (!userId) {
-    throw new Error("Unauthenticated");
+    return { success: false, error: "Unauthenticated" };
   }
-  console.log(id);
-  await prisma.credential.deleteMany({
-    where: {
-      userId,
-      id,
-    },
-  });
+  
+  try {
+    await prisma.credential.deleteMany({
+      where: {
+        userId,
+        id,
+      },
+    });
 
-  revalidatePath("/dashboard/credentials");
+    revalidatePath("/dashboard/credentials");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to delete credential:", error);
+    return { success: false, error: error.message || "Failed to delete credential" };
+  }
 }

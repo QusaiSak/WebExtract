@@ -9,7 +9,7 @@ import {
   SignedOut,
   UserButton,
 } from "@clerk/nextjs";
-import { Toaster } from "sonner";
+import { Toaster } from "react-hot-toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -38,7 +38,7 @@ export default function RootLayout({
         <body className={inter.className}>
           <ErrorBoundary>
             <AppProviders>{children}</AppProviders>
-            <Toaster position="top-right" richColors />
+            <Toaster position="bottom-right" reverseOrder={false} />
           </ErrorBoundary>
         </body>
       </html>

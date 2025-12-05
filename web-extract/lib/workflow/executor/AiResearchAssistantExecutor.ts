@@ -56,7 +56,7 @@ export async function AiResearchAssistantExecutor(
     enviornment.log.info("� Sending search request to SerpApi...");
 
     // Use SerpApi to search for real research links
-    const serpApiUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(researchQuery)}&api_key=${plainCredentialValue}&num=${numberOfLinks}&hl=en`;
+    const serpApiUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(researchQuery)}&api_key=${plainCredentialValue}&num=${numberOfLinks}&hl=en&gl=us&google_domain=google.com`;
     
     const searchResponse = await fetch(serpApiUrl);
     if (!searchResponse.ok) {
@@ -99,7 +99,7 @@ export async function AiResearchAssistantExecutor(
     const linkCount = cleanUrls.length;
 
     // Create a brief summary
-    const summary = `Found ${linkCount} research links for: ${researchQuery}`;
+    const summary = `Requested ${numberOfLinks}, found ${linkCount} research links for: ${researchQuery}`;
 
     // Output for Launch Browser (clean URLs)
     enviornment.setOutput("Research Links", linksForBrowser);

@@ -61,7 +61,17 @@ export async function LaunchBrowserExecutor(
       
     } else if (websiteUrl) {
       enviornment.log.info("🌍 Processing direct website URL");
-      urls = [websiteUrl];
+      const trimmed = websiteUrl.trim();
+      // Detect multiple URLs in Website Url field
+      const newlineUrls = trimmed.split('\n').map(l => l.trim()).filter(Boolean);
+      const regexUrls = trimmed.match(/https?:\/\/[^\s]+/g) || [];
+      const candidateUrls = (newlineUrls.length > 1 ? newlineUrls : regexUrls).length > 1
+        ? (newlineUrls.length > 1 ? newlineUrls : regexUrls)
+        : [trimmed];
+      urls = candidateUrls;
+      if (urls.length > 1) {
+        enviornment.log.info(`🔄 Detected ${urls.length} URLs in Website Url input; switching to parallel processing`);
+      }
     }
     
     if (urls.length === 0) {
@@ -109,7 +119,16 @@ export async function LaunchBrowserExecutor(
         "--no-first-run",
         "--no-zygote",
         "--disable-gpu",
-        "--disable-features=VizDisplayCompositor"
+        "--disable-features=VizDisplayCompositor",
+        "--disable-extensions",
+        "--disable-background-networking",
+        "--disable-default-apps",
+        "--disable-sync",
+        "--disable-translate",
+        "--hide-scrollbars",
+        "--metrics-recording-only",
+        "--mute-audio",
+        "--no-default-browser-check"
       ],
     });
     enviornment.log.info("✅ Browser started successfully");
@@ -142,7 +161,7 @@ export async function LaunchBrowserExecutor(
           
           const navigationStartTime = performance.now();
           await page.goto(url, { 
-            waitUntil: 'networkidle0',
+            waitUntil: 'domcontentloaded',
             timeout: 15000
           });
           const navigationTime = performance.now() - navigationStartTime;

@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
 
+async function broadcast(baseUrl: string, channel: string, type: string, payload: any) {
+  try {
+    const url = `${baseUrl.replace(/\/$/, '')}/api/ws`
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel, type, payload })
+    })
+  } catch (e) {
+    console.warn('WS broadcast failed:', e)
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const user = await currentUser()
@@ -10,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { name, description, definition } = await request.json()
-    console.log('Received workflow data:', { name, description, definition })
+
     if (!name || !definition) {
       return NextResponse.json(
         { error: 'Name and definition are required' },
@@ -23,7 +36,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId: user.id,
         name,
-        description: description || `AI Generated workflow: ${name}`,
+        description: description || `Created via Chat: ${name}`,
         definition,
         status: 'DRAFT'
       }
@@ -39,11 +52,65 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function PUT(request: NextRequest) {
   try {
     const user = await currentUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id, name, description, definition } = await request.json()
+    if (!id || (!definition && !name && !description)) {
+      return NextResponse.json(
+        { error: 'id and at least one field to update are required' },
+        { status: 400 }
+      )
+    }
+
+    const existing = await prisma.workflow.findUnique({ where: { id } })
+    if (!existing || existing.userId !== user.id) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    const updated = await prisma.workflow.update({
+      where: { id },
+      data: {
+        ...(name ? { name } : {}),
+        ...(description ? { description } : {}),
+        ...(definition ? { definition } : {}),
+      }
+    })
+
+    // Fire-and-forget SSE broadcast for live editors
+    const origin = new URL(request.url).origin
+    broadcast(origin, id, 'workflow.updated', { id, name: updated.name, definition: updated.definition }).catch(() => {})
+
+    return NextResponse.json(updated)
+  } catch (error) {
+    console.error('Error updating workflow:', error)
+    return NextResponse.json(
+      { error: 'Failed to update workflow' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const user = await currentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+
+    if (id) {
+      const wf = await prisma.workflow.findUnique({ where: { id } })
+      if (!wf || wf.userId !== user.id) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      }
+      return NextResponse.json(wf)
     }
 
     const workflows = await prisma.workflow.findMany({

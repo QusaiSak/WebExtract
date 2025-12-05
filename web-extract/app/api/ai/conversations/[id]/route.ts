@@ -49,3 +49,24 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const user = await currentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    await prisma.aiConversation.delete({
+      where: { 
+        id: params.id, 
+        userId: user.id 
+      }
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting conversation:', error)
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+  }
+}

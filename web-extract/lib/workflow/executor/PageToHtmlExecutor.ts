@@ -74,6 +74,16 @@ export async function PageToHtmlExecutor(
       const html = await page.content();
       enviornment.setOutput("HTML", html);
       enviornment.setOutput("Pages Count", "1");
+
+      // Also set "All HTML Data" for consistency so downstream nodes can use it
+      const allHtmlData = JSON.stringify({
+        pages: [{ url: page.url(), title: await page.title(), html: html }],
+        combinedHTML: html,
+        totalPages: 1,
+        processedAt: new Date().toISOString()
+      }, null, 2);
+      enviornment.setOutput("All HTML Data", allHtmlData);
+
       enviornment.log.info(`Single page HTML extracted: ${html.length} characters`);
       return true;
     }

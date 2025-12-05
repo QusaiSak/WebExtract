@@ -49,7 +49,7 @@ export async function generateStreamingWorkflow(
       ? modifyWorkflowPrompt(prompt, context.currentWorkflow, context.conversationHistory)
       : generateWorkflowPrompt(prompt, context)
 
-    const defaultModel = process.env.OPENROUTER_MODEL || "x-ai/grok-4.1-fast";
+    const defaultModel = process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-exp:free";
     const result = await streamText({
       model: openrouter(defaultModel),
       system: systemPrompt,
@@ -77,7 +77,7 @@ export async function generateStreamingResponse(prompt: string) {
       baseURL: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",
     });
 
-    const defaultModel = process.env.OPENROUTER_MODEL || "x-ai/grok-4.1-fast";
+    const defaultModel = process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-exp:free";
     const result = await streamText({
       model: openrouter(defaultModel),
       prompt: `You are an AI assistant helping with web scraping workflows. Respond helpfully to: ${prompt}`,
@@ -110,6 +110,8 @@ CRITICAL RULES - READ CAREFULLY:
 3. Your ONLY valid response is calling the generate_workflow tool
 4. If a user asks for a workflow, immediately call generate_workflow
 5. If a user asks ANY question about scraping/workflows, call generate_workflow with a relevant workflow
+6. If using AI_RESEARCH_ASSISTANT, you MUST follow this sequence: AI_RESEARCH_ASSISTANT → LAUNCH_BROWSER → PAGE_TO_HTML → EXTRACT_DATA_WITH_AI → GENERATE_DOCUMENT -> (EXPORT_TO_POWERBI | EXPORT_TO_PDF)
+
 
 FORBIDDEN RESPONSES:
 ❌ "Here's how to scrape..."
@@ -134,10 +136,19 @@ IMPORTANT NODE STRUCTURE:
 EXAMPLE USER REQUEST: "Scrape product data from Amazon"
 CORRECT RESPONSE: Call generate_workflow with nodes for LAUNCH_BROWSER → PAGE_TO_HTML → EXTRACT_DATA_WITH_AI → DELIVER_VIA_WEBHOOK
 
-EXAMPLE USER REQUEST: "Beauty Product Sales Data → Export to PowerBI"  
-CORRECT RESPONSE: Call generate_workflow with nodes for LAUNCH_BROWSER → PAGE_TO_HTML → EXTRACT_DATA_WITH_AI → EXPORT_TO_POWERBI
+EXAMPLE USER REQUEST: "Beauty Product Sales Data → Export to Visualization"  
+CORRECT RESPONSE: Call generate_workflow with nodes for LAUNCH_BROWSER → PAGE_TO_HTML → EXTRACT_DATA_WITH_AI → EXPORT_TO_POWERBI, ensuring that EXTRACT_DATA_WITH_AI outputs numeric data matching the chosen chart type schema.
 
 Available task types: LAUNCH_BROWSER, PAGE_TO_HTML, EXTRACT_DATA_WITH_AI, EXTRACT_TEXT_FROM_ELEMENT, FILL_INPUT, CLICK_ELEMENT, WAIT_FOR_ELEMENT, NAVIGATE_URL, SCROLL_TO_ELEMENT, DELIVER_VIA_WEBHOOK, READ_PROPERTY_FROM_JSON, ADD_PROPERTY_TO_JSON, AI_RESEARCH_ASSISTANT, TRANSLATE_TEXT, DETECT_LANGUAGE, GENERATE_DOCUMENT, EXPORT_TO_CSV, EXPORT_TO_POWERBI
+
+Visualization Data Requirements:
+- When using EXPORT_TO_POWERBI, the "Data" input MUST be a valid JSON array matching the chart type:
+  - Bar/Column: [{"category": string, "value": number}]
+  - Line/Trend: [{"date": string, "value": number}]
+  - Pie/Doughnut: [{"label": string, "value": number}]
+  - Scatter: [{"x_value": number, "y_value": number}]
+- Connect EXTRACT_DATA_WITH_AI → EXPORT_TO_POWERBI with "Extracted Data" → "Data" and set "Chart Type" accordingly.
+- Ensure numeric fields are numbers (not strings).
 
 REMEMBER: NO TEXT RESPONSES. ONLY TOOL CALLS. ALWAYS USE generate_workflow. NEVER GENERATE IDs.`;
     
@@ -157,7 +168,7 @@ CRITICAL INSTRUCTION: You MUST respond by calling the generate_workflow tool. Do
     ];
 
     const result = await streamUI({
-      model: createOpenAI({ apiKey, baseURL: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1" })(process.env.OPENROUTER_MODEL || "openai/gpt-4o"),
+      model: createOpenAI({ apiKey, baseURL: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1" })(process.env.OPENROUTER_MODEL || "openai/gpt-oss-20b:free"),
       initial: <div className="animate-pulse text-sm text-muted-foreground">Generating workflow...</div>,
       messages: messages,
       tools: {

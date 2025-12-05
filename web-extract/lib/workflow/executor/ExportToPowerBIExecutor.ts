@@ -236,9 +236,18 @@ export async function ExportToPowerBIExecutor(
     const parsingStartTime = performance.now();
 
     // Try to parse as JSON first, then as text
-    let parsedData;
+    let parsedData: any;
     try {
       parsedData = JSON.parse(data);
+      // If JSON.parse produced a string, attempt second parse (handles double-encoded JSON)
+      if (typeof parsedData === 'string') {
+        try {
+          parsedData = JSON.parse(parsedData);
+          enviornment.log.info("🔁 Parsed double-encoded JSON successfully");
+        } catch {
+          enviornment.log.info("ℹ️ Input was JSON string; proceeding as text");
+        }
+      }
       enviornment.log.info("✅ Successfully parsed input as JSON");
     } catch {
       // If not JSON, treat as text and split into rows
@@ -274,6 +283,20 @@ export async function ExportToPowerBIExecutor(
           enviornment.log.info("📄 Created simple data structure from text lines");
         }
       }
+    }
+
+    // Normalize parsed data: if array items are JSON strings, parse them
+    if (Array.isArray(parsedData)) {
+      parsedData = parsedData.map((item: any) => {
+        if (typeof item === 'string') {
+          try {
+            return JSON.parse(item);
+          } catch {
+            return { text: item };
+          }
+        }
+        return item;
+      });
     }
     
     const parsingEndTime = performance.now();
@@ -329,16 +352,238 @@ export async function ExportToPowerBIExecutor(
     // Generate Power BI template with specific recommendations
     const templateContent = generatePowerBITemplate(chartType, powerBIData.length, fileName);
     
-    // Set outputs using the correct names from the task definition
-    enviornment.setOutput("Power BI CSV", csvData);
-    enviornment.setOutput("Template File", templateContent);
-    enviornment.setOutput("Auto Download", autoDownloadUrl);
+    // Generate visualization configuration for frontend rendering
+    // const chartData = powerBIData.slice(0, 50); // Removed to avoid redeclaration
+    // Dynamic key detection for robust visualization
+    const sampleItem = powerBIData[0] || {};
+    const keys = Object.keys(sampleItem);
+    
+    // Find best candidates for axis
+    const labelKey = keys.find(k => typeof sampleItem[k] === 'string' && k !== 'powerbi_id' && k !== 'data_source' && k !== 'extraction_date') || keys[0] || 'text';
+    
+    // Smart value detection: prioritize numbers, then look for price strings
+    let valueKey = keys.find(k => typeof sampleItem[k] === 'number' && k !== 'id' && k !== 'record_index' && k !== 'rank');
+    
+    // If no number found, check for price strings (e.g., "$10.99")
+    if (!valueKey) {
+       valueKey = keys.find(k => typeof sampleItem[k] === 'string' && /^\$?\d/.test(sampleItem[k])) || keys[1] || 'value';
+    }
+
+    // Helper to parse values (handles "$10.99", "1,000", etc.)
+    const parseValue = (val: any) => {
+      if (typeof val === 'number') return val;
+      if (typeof val === 'string') {
+        return parseFloat(val.replace(/[$,]/g, '')) || 0;
+      }
+      return 0;
+    };
+
+    // Prepare chart data with parsed values
+    const chartData = powerBIData.slice(0, 50).map(item => ({
+      ...item,
+      [valueKey]: parseValue(item[valueKey]) // Ensure the value key actually holds a number
+    }));
+
+    const chartConfig = {
+      xAxis: labelKey,
+      yAxis: valueKey,
+      label: labelKey,
+      color: 'color_group'
+    };
+
+    const visualizationConfig = {
+      type: chartType,
+      data: chartData,
+      config: chartConfig,
+      title: `${chartType.charAt(0).toUpperCase() + chartType.slice(1)} Analysis`,
+      description: `Visualizing ${powerBIData.length} records`
+    };
+
+  // Set outputs using the correct names from the task definition
+  enviornment.setOutput("Power BI CSV", csvData);
+  enviornment.setOutput("Template File", templateContent);
+  enviornment.setOutput("Auto Download", autoDownloadUrl);
+  enviornment.setOutput("Visualization Config", JSON.stringify(visualizationConfig));
+  
+    // Render visualization image using Chart.js in a headless browser
+    try {
+      const chartHtml = `<!doctype html>
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <style>
+              body { margin: 0; }
+              #c { width: 1200px; height: 630px; }
+            </style>
+            <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+          </head>
+          <body>
+            <canvas id="c" width="1200" height="630"></canvas>
+            <script>
+              const data = ${JSON.stringify(visualizationConfig)};
+              const ctx = document.getElementById('c');
+              const type = data.type === 'trend' ? 'line' : (data.type || 'bar');
+              const rows = data.data;
+              const cfg = data.config || {};
+              const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+              function series() {
+                if (type === 'bar' || type === 'column') {
+                  return {
+                    labels: rows.map(r => r[cfg.xAxis || 'category'] ?? ''),
+                    datasets: [{
+                      label: data.title || 'Visualization',
+                      data: rows.map(r => num(r[cfg.yAxis || 'value'])),
+                      backgroundColor: 'rgba(99, 102, 241, 0.5)',
+                      borderColor: 'rgba(99, 102, 241, 1)',
+                      borderWidth: 1
+                    }]
+                  };
+                }
+                if (type === 'line' || type === 'area') {
+                  return {
+                    labels: rows.map(r => r[cfg.xAxis || 'date'] ?? ''),
+                    datasets: [{
+                      label: data.title || 'Trend',
+                      data: rows.map(r => num(r[cfg.yAxis || 'value'])),
+                      fill: type === 'area',
+                      borderColor: 'rgba(16, 185, 129, 1)',
+                      backgroundColor: 'rgba(16, 185, 129, 0.3)'
+                    }]
+                  };
+                }
+                if (type === 'pie' || type === 'doughnut') {
+                  return {
+                    labels: rows.map(r => r[cfg.label || 'label'] ?? ''),
+                    datasets: [{
+                      label: data.title || 'Distribution',
+                      data: rows.map(r => num(r[cfg.yAxis || 'value'])),
+                      backgroundColor: rows.map((_, i) => 'hsl(' + ((i*47)%360) + ',70%,60%)')
+                    }]
+                  };
+                }
+                // scatter
+                return {
+                  datasets: [{
+                    label: data.title || 'Scatter',
+                    data: rows.map(r => ({ x: num(r[cfg.xAxis || 'x_value']), y: num(r[cfg.yAxis || 'y_value']) })),
+                    backgroundColor: 'rgba(234, 88, 12, 0.7)'
+                  }]
+                };
+              }
+              const chart = new Chart(ctx, {
+                type,
+                data: series(),
+                options: {
+                  responsive: false,
+                  plugins: { legend: { position: 'top' }, title: { display: true, text: data.title || 'Visualization' }},
+                  scales: { x: { title: { display: true, text: cfg.xAxis || 'x' } }, y: { title: { display: true, text: cfg.yAxis || 'y' } } }
+                }
+              });
+            </script>
+          </body>
+        </html>`;
+
+      // Use shared browser if available
+      let browser = enviornment.getBrowser();
+      let created = false;
+      if (!browser) {
+        const puppeteer = (await import('puppeteer')).default;
+        browser = await puppeteer.launch({ headless: true });
+        enviornment.setBrowser(browser);
+        created = true;
+      }
+      const page = await browser!.newPage();
+      await page.setViewport({ width: 1200, height: 630 });
+      await page.setContent(chartHtml, { waitUntil: 'networkidle0' });
+      const pngBuffer = await page.screenshot({ type: 'png' });
+      await page.close();
+      if (created) {
+        await browser!.close().catch(() => {});
+      }
+      const base64 = pngBuffer.toString('base64');
+      const dataUrl = `data:image/png;base64,${base64}`;
+      enviornment.setOutput('Visualization Image', dataUrl);
+      enviornment.setOutput('Visualization Image URL', dataUrl);
+      enviornment.log.info('🖼️ Visualization image generated');
+    } catch (e) {
+      enviornment.log.info('⚠️ Could not render visualization image: ' + (e?.message || e));
+    }
+
+    // Generate HTML Report with Chart.js
+    const htmlReport = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Data Visualization Report</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f4f4f5; }
+    .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    h1 { color: #18181b; }
+    .chart-container { position: relative; height: 500px; width: 1000px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>${visualizationConfig.title}</h1>
+    <p>${visualizationConfig.description}</p>
+    <div class="chart-container">
+      <canvas id="myChart"></canvas>
+    </div>
+  </div>
+  <script>
+    const ctx = document.getElementById('myChart');
+    const data = ${JSON.stringify(powerBIData)};
+    const type = '${chartType === 'pie' ? 'pie' : chartType === 'line' ? 'line' : chartType === 'scatter' ? 'scatter' : 'bar'}';
+    
+    // Dynamic mapping
+    const labelKey = '${labelKey}';
+    const valueKey = '${valueKey}';
+
+    // Helper to parse values (handles "$10.99", "1,000", etc.)
+    const parseValue = (val) => {
+      if (typeof val === 'number') return val;
+      if (typeof val === 'string') {
+        return parseFloat(val.replace(/[$,]/g, '')) || 0;
+      }
+      return 0;
+    };
+
+    const labels = data.map(d => d[labelKey]);
+    const values = data.map(d => parseValue(d[valueKey]));
+    
+    new Chart(ctx, {
+      type: type,
+      data: {
+        labels: labels,
+        datasets: [{
+          label: valueKey,
+          data: type === 'scatter' ? data.map(d => ({x: d[labelKey], y: parseValue(d[valueKey])})) : values,
+          borderWidth: 1,
+          backgroundColor: 'rgba(59, 130, 246, 0.5)',
+          borderColor: 'rgb(59, 130, 246)'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
+    `;
+
+    enviornment.setOutput("HTML Report", htmlReport);
     
     // Log comprehensive results
     enviornment.log.info(`📊 Exported ${powerBIData.length} records as ${chartType} chart`);
     enviornment.log.info(`📁 Generated ${fileName} (${outputSizeKB}KB)`);
     enviornment.log.info(`🔗 Auto-download URL: ${autoDownloadUrl}`);
-    enviornment.log.info(`📋 Chart-specific template guide created`);
+  enviornment.log.info(`📋 Chart-specific template guide created`);
     
     const endTime = performance.now();
     const totalTimeMs = Math.round(endTime - startTime);

@@ -3,9 +3,9 @@ import { BarChart3Icon, LucideProps } from "lucide-react";
 
 export const ExportToPowerBITask = {
   type: TaskType.EXPORT_TO_POWERBI,
-  label: "Export to Power BI (CSV)",
+  label: "Visualize & Export",
   icon: (props: LucideProps) => (
-    <BarChart3Icon className="stroke-yellow-400" {...props} />
+    <BarChart3Icon className="stroke-pink-400" {...props} />
   ),
   isEntryPoint: false,
   inputs: [
@@ -13,18 +13,16 @@ export const ExportToPowerBITask = {
       name: "Data",
       type: TaskParamType.STRING,
       required: true,
-      variant: "textarea",
     },
     {
       name: "Chart Type",
       type: TaskParamType.SELECT,
       required: true,
       hideHandle: true,
-      helperText: "Prepares data structure optimized for this chart type in Power BI",
       options: [
-        { label: "Trend Analysis", value: "trend" },
-        { label: "Pie Chart", value: "pie" },
         { label: "Bar Chart", value: "bar" },
+        { label: "Line Chart", value: "line" },
+        { label: "Pie Chart", value: "pie" },
         { label: "Scatter Plot", value: "scatter" },
       ],
     },
@@ -40,6 +38,22 @@ export const ExportToPowerBITask = {
     },
     {
       name: "Auto Download",
+      type: TaskParamType.STRING,
+    },
+    {
+      name: "Visualization Config",
+      type: TaskParamType.STRING,
+    },
+    {
+      name: "HTML Report",
+      type: TaskParamType.STRING,
+    },
+    {
+      name: "Visualization Image",
+      type: TaskParamType.STRING,
+    },
+    {
+      name: "Visualization Image URL",
       type: TaskParamType.STRING,
     },
   ] as const,

@@ -48,7 +48,7 @@ const WorkflowCanvas = ({ workflow, title, onSave, onRun }: WorkflowCanvasProps)
       title 
     })
   }, [workflow, title])
-  const [workflowTitle, setWorkflowTitle] = useState(title || 'AI Generated Workflow')
+  const [workflowTitle, setWorkflowTitle] = useState(title || 'Untitled Workflow')
   const [isSaving, setIsSaving] = useState(false)
   const [isRunning, setIsRunning] = useState(false)
 

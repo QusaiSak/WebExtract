@@ -22,6 +22,7 @@ import {
   Copy as CopyIcon,
   Eye,
   EyeOff,
+  BarChart3Icon,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -651,6 +652,111 @@ function ExecutionViewer({ initialData }: { initialData: ExecutionData }) {
                   />
                 )}
               </div>
+
+              {/* Visualization Section */}
+              {(() => {
+                try {
+                  const outputsObj = typeof selectedPhaseData?.outputs === 'string'
+                    ? JSON.parse(selectedPhaseData?.outputs || '{}')
+                    : (selectedPhaseData?.outputs as any) || {}
+                  
+                  const vizConfigStr = outputsObj?.['Visualization Config']
+                  if (!vizConfigStr) return null
+                  
+                  const vizConfig = JSON.parse(vizConfigStr)
+                  const { type, data, config, title, description } = vizConfig
+                  
+                  // Dynamic import for Recharts components to avoid SSR issues
+                  const { 
+                    BarChart, Bar, LineChart, Line, PieChart, Pie, 
+                    XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
+                    ResponsiveContainer, Cell, ScatterChart, Scatter
+                  } = require('recharts')
+
+                  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d']
+
+                  return (
+                    <div className="mx-6 mb-6 p-6 rounded-xl border bg-card shadow-sm">
+                      <div className="mb-6">
+                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                          <BarChart3Icon className="w-5 h-5 text-primary" />
+                          {title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">{description}</p>
+                      </div>
+
+                      <div className="h-[400px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          {type === 'bar' || type === 'column' ? (
+                            <BarChart data={data}>
+                              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                              <XAxis dataKey={config.xAxis} fontSize={12} tickLine={false} axisLine={false} />
+                              <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                              <Tooltip 
+                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                              />
+                              <Legend />
+                              <Bar dataKey={config.yAxis} fill="#8884d8" radius={[4, 4, 0, 0]}>
+                                {data.map((entry: any, index: number) => (
+                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          ) : type === 'pie' || type === 'doughnut' ? (
+                            <PieChart>
+                              <Pie
+                                data={data}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                label={({ name, percent }: { name: string; percent: number }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                outerRadius={150}
+                                fill="#8884d8"
+                                dataKey={config.yAxis}
+                                nameKey={config.label}
+                              >
+                                {data.map((entry: any, index: number) => (
+                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <Tooltip />
+                              <Legend />
+                            </PieChart>
+                          ) : type === 'scatter' ? (
+                            <ScatterChart>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis type="number" dataKey={config.xAxis} name="X" />
+                              <YAxis type="number" dataKey={config.yAxis} name="Y" />
+                              <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+                              <Legend />
+                              <Scatter name="Data" data={data} fill="#8884d8">
+                                {data.map((entry: any, index: number) => (
+                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                              </Scatter>
+                            </ScatterChart>
+                          ) : (
+                            <LineChart data={data}>
+                              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                              <XAxis dataKey={config.xAxis} fontSize={12} tickLine={false} axisLine={false} />
+                              <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                              <Tooltip 
+                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                              />
+                              <Legend />
+                              <Line type="monotone" dataKey={config.yAxis} stroke="#8884d8" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 8 }} />
+                            </LineChart>
+                          )}
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )
+                } catch (e) {
+                  console.error('Failed to render visualization:', e)
+                  return null
+                }
+              })()}
 
               {/* Manual download action when auto URL exists */}
               {(() => {

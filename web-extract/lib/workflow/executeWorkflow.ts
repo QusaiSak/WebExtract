@@ -48,6 +48,17 @@ export async function executeWorkflow(executionId: string, nextRunAt?: Date) {
   let creditsConsumed = 0;
 
   for (const phase of execution.phases) {
+    // Check if execution was stopped
+    const currentExecution = await prisma.workflowExecution.findUnique({
+      where: { id: executionId },
+      select: { status: true },
+    });
+
+    if (currentExecution?.status !== WorkflowExecutionStatus.RUNNING) {
+      console.log("Execution stopped externally");
+      return;
+    }
+
     const phaseExecution = await executeWorkflowPhase(
       phase,
       enviornment,
@@ -157,40 +168,46 @@ async function executeWorkflowPhase(
 ) {
   const startedAt = new Date();
   const logCollector = createLogCollector();
-
   const node = JSON.parse(phase.node) as AppNode;
-  setupEnviornmentForPhase(node, enviornment, edges);
-  // Update the status
 
-  await prisma.executionPhase.update({
-    where: {
-      id: phase.id,
-    },
-    data: {
-      status: ExecutionPhaseStatus.RUNNING,
-      startedAt,
-      inputs: JSON.stringify(enviornment.phases[node.id].inputs),
-    },
-  });
+  try {
+    setupEnviornmentForPhase(node, enviornment, edges);
+    // Update the status
 
-  const creditsRequired = TaskRegistry[node.data.type].credits;
+    await prisma.executionPhase.update({
+      where: {
+        id: phase.id,
+      },
+      data: {
+        status: ExecutionPhaseStatus.RUNNING,
+        startedAt,
+        inputs: JSON.stringify(enviornment.phases[node.id].inputs),
+      },
+    });
 
-  let success = await decrementCredits(userId, creditsRequired, logCollector);
+    const creditsRequired = TaskRegistry[node.data.type].credits;
 
-  const creditsConsumed = success ? creditsRequired : 0;
-  if (success) {
-    // executing phase only when credits are available and deducted
-    success = await executePhase(phase, node, enviornment, logCollector);
+    let success = await decrementCredits(userId, creditsRequired, logCollector);
+
+    const creditsConsumed = success ? creditsRequired : 0;
+    if (success) {
+      // executing phase only when credits are available and deducted
+      success = await executePhase(phase, node, enviornment, logCollector);
+    }
+    const outputs = enviornment.phases[node.id].outputs;
+    await finalizePhase(
+      phase.id,
+      success,
+      outputs,
+      creditsConsumed,
+      logCollector
+    );
+    return { success, creditsConsumed };
+  } catch (error: any) {
+    logCollector.error(error.message);
+    await finalizePhase(phase.id, false, {}, 0, logCollector);
+    return { success: false, creditsConsumed: 0 };
   }
-  const outputs = enviornment.phases[node.id].outputs;
-  await finalizePhase(
-    phase.id,
-    success,
-    outputs,
-    creditsConsumed,
-    logCollector
-  );
-  return { success, creditsConsumed };
 }
 
 async function finalizePhase(
@@ -270,12 +287,28 @@ function setupEnviornmentForPhase(
     );
 
     if (!connectedEdge) {
-      console.error(
-        "Missing edge for input ",
-        input.name,
-        " node.id: ",
-        node.id
-      );
+      const possibleEdges = edges.filter((e) => e.target === node.id);
+      if (input.name === "Content" && possibleEdges.length > 0) {
+        let val = "";
+        for (const e of possibleEdges) {
+          const up = enviornment.phases[e.source];
+          if (up && up.outputs) {
+            val =
+              up.outputs[e.sourceHandle || ""] ||
+              up.outputs["Generated Document"] ||
+              up.outputs["HTML"] ||
+              up.outputs["All HTML Data"] ||
+              val;
+          }
+          if (val) break;
+        }
+        if (val) {
+          enviornment.phases[node.id].inputs[input.name] = val;
+          continue;
+        }
+      }
+      console.error("Missing edge for input ", input.name, " node.id: ", node.id);
+      continue;
     }
 
     const upstream = enviornment.phases[connectedEdge!.source];

@@ -3,6 +3,7 @@ import { ExtractDataWithAiTask } from "../task/ExtractDataWithAi";
 import prisma from "@/lib/prisma";
 import { symmetricDecrypt } from "@/lib/credential";
 import OpenAi from "openai";
+import * as cheerio from "cheerio";
 
 export async function ExtractDataWithAiExecutor(
   enviornment: ExecutionEnviornment<typeof ExtractDataWithAiTask>
@@ -22,6 +23,74 @@ export async function ExtractDataWithAiExecutor(
     if (!prompt) {
       enviornment.log.error("input -> prompt is not defined");
       return false;
+    }
+
+    // Handle case where input is JSON (from PageToHtml "All HTML Data" output)
+    let htmlContent = content;
+    try {
+      // Try to parse as JSON to see if it's a structured object
+      if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
+        const jsonContent = JSON.parse(content);
+        
+        // Check for common patterns from PageToHtmlExecutor
+        if (jsonContent.combinedHTML) {
+          htmlContent = jsonContent.combinedHTML;
+          enviornment.log.info("📄 Detected JSON input, extracting 'combinedHTML'");
+        } else if (jsonContent.html) {
+          htmlContent = jsonContent.html;
+          enviornment.log.info("📄 Detected JSON input, extracting 'html'");
+        } else if (Array.isArray(jsonContent.pages)) {
+          // Combine HTML from all pages
+          htmlContent = jsonContent.pages.map((p: any) => p.html || '').join('\n\n');
+          enviornment.log.info(`📄 Detected JSON input, combining HTML from ${jsonContent.pages.length} pages`);
+        } else if (jsonContent.pages && Array.isArray(jsonContent.pages)) {
+           // Handle the specific structure shown in user screenshot
+           htmlContent = jsonContent.pages.map((p: any) => p.html || '').join('\n\n');
+           enviornment.log.info(`📄 Detected JSON input, combining HTML from ${jsonContent.pages.length} pages`);
+        }
+      }
+    } catch (e) {
+      // Not JSON or failed to parse, proceed with raw content
+    }
+
+    // Clean content using cheerio to reduce token usage without losing structure
+    const $ = cheerio.load(htmlContent);
+    
+    // Remove unnecessary elements
+    $('script, style, noscript, iframe, svg, link, meta, head').remove();
+    
+    // Remove comments
+    $('*').contents().filter((_: any, el: any) => el.type === 'comment').remove();
+
+    // Remove heavy attributes from all elements to save tokens
+    $('*').each((_: any, el: any) => {
+      if (el.type === 'tag') {
+        const attribs = el.attribs;
+        for (const name in attribs) {
+          // Remove style, data-*, on*, aria-*, width, height
+          if (
+            name === 'style' || 
+            name.startsWith('data-') || 
+            name.startsWith('aria-') || 
+            name.startsWith('on') ||
+            name === 'width' || 
+            name === 'height'
+          ) {
+            $(el).removeAttr(name);
+          }
+        }
+      }
+    });
+
+    // Get the cleaned HTML (body only) and normalize whitespace
+    let cleanedContent = $('body').html() || '';
+    cleanedContent = cleanedContent.replace(/\s+/g, ' ').trim();
+
+    // Safety check: Limit to ~1.5M tokens (approx 6M chars) to avoid 400 error
+    const MAX_CHARS = 6000000;
+    if (cleanedContent.length > MAX_CHARS) {
+       enviornment.log.info(`⚠️ Content too large (${cleanedContent.length} chars), truncating to ${MAX_CHARS} chars to fit token limit`);
+       cleanedContent = cleanedContent.substring(0, MAX_CHARS);
     }
 
     const credential = await prisma.credential.findUnique({
@@ -61,7 +130,7 @@ export async function ExtractDataWithAiExecutor(
         },
         {
           role: "user",
-          content: content,
+          content: cleanedContent,
         },
         {
           role: "user",
@@ -88,7 +157,8 @@ export async function ExtractDataWithAiExecutor(
       return false;
     }
 
-    enviornment.setOutput("Extracted Data", JSON.stringify(result));
+    // Output the JSON text directly (no double stringification)
+    enviornment.setOutput("Extracted Data", result);
 
     return true;
   } catch (error: any) {

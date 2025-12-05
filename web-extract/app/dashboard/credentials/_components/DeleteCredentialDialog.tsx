@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   AlertDialog,
@@ -28,15 +29,22 @@ function DeleteCredentialDialog({ crendentialName, credentialId }: Props) {
   const [confirmText, setConfirmText] = useState("");
   const [open, setOpen] = useState(false);
   console.log(crendentialName);
+  const router = useRouter();
 
   const deleteMutation = useMutation({
-    mutationFn: deleteCredential,
-    onSuccess: () => {
-      toast.success("Credential deleted successfully", { id: credentialId });
-      setConfirmText("");
+    mutationFn: async (id: string) => deleteCredential(String(id)),
+    onSuccess: (result) => {
+      if (result && result.success) {
+        toast.success("Credential deleted successfully", { id: credentialId });
+        setConfirmText("");
+        setOpen(false);
+        router.refresh();
+      } else {
+        toast.error(result?.error || "Failed to delete credential", { id: credentialId });
+      }
     },
-    onError: () => {
-      toast.error("Failed to delete credential", { id: credentialId });
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to delete credential", { id: credentialId });
     },
   });
 

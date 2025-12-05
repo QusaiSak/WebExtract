@@ -31,23 +31,36 @@ function CreateCredentialDialog({ triggeredText }: { triggeredText?: string }) {
 
   const form = useForm<createCredentialSchemaType>({
     resolver: zodResolver(createCredentialSchema),
-    defaultValues: {},
+    defaultValues: { name: "", value: "" },
   });
   const { mutate, isPending } = useMutation({
-    mutationFn: createCredential,
-    onSuccess: () => {
-      toast.success("Credential created", { id: "create-credential" });
-      setOpen(false);
+    mutationFn: async (payload: createCredentialSchemaType) =>
+      createCredential({
+        name: String(payload?.name ?? ""),
+        value: String(payload?.value ?? ""),
+      }),
+    onSuccess: (result) => {
+      if (result && result.success) {
+        toast.success("Credential created", { id: "create-credential" });
+        setOpen(false);
+      } else {
+        toast.error(result?.error || "Failed to create credential", { id: "create-credential" });
+      }
     },
     onError: (error: any) => {
-      toast.error("Failed to create credential", { id: "create-credential" });
+      toast.error(error.message || "Failed to create credential", { id: "create-credential" });
     },
   });
 
   const onSubmit = useCallback(
     (values: createCredentialSchemaType) => {
       toast.loading("Creating credential...", { id: "create-credential" });
-      mutate(values);
+      const payload = {
+        name: String(values.name ?? ""),
+        value: String(values.value ?? ""),
+      };
+      const plainPayload = JSON.parse(JSON.stringify(payload));
+      mutate(plainPayload);
     },
     [mutate]
   );
@@ -80,7 +93,7 @@ function CreateCredentialDialog({ triggeredText }: { triggeredText?: string }) {
                       Name <p className="text-xs text-primary">(required)</p>
                     </FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} value={field.value ?? ""} />
                     </FormControl>
                     <FormDescription>
                       Enter an unique and descriptive name for credential <br />
@@ -96,13 +109,10 @@ function CreateCredentialDialog({ triggeredText }: { triggeredText?: string }) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="flex gap-1 items-center">
-                      Description{" "}
-                      <p className="text-xs text-muted-foreground">
-                        (optinoal)
-                      </p>
+                      Value <p className="text-xs text-primary">(required)</p>
                     </FormLabel>
                     <FormControl>
-                      <Textarea {...field} className="resize-none" />
+                      <Textarea {...field} value={field.value ?? ""} className="resize-none" />
                     </FormControl>
                     <FormDescription>
                       Enter the value assosiated with this credential <br />
